@@ -178,6 +178,7 @@ QUESTIONS = {
              "criteria": {"polite": "calm, friendly, thankful", "angry": "angry, demanding, complaining, impatient"}},
 }
 SMALL_TALK = re.compile(r"thank you for calling|how (may|can) i (help|assist)|salamat (po )?sa pagtawag", re.I)
+SUPERVISOR = re.compile(r"\b(supervisor|manager)\b", re.I)  # asking for one = escalation, whatever Laya's tone says
 MOOD_HIGH = 0.5  # smoothed P(angry) at or above this for 2 chunks -> escalate; calibrated on the demo call
 
 
@@ -269,10 +270,11 @@ async def enrich(ws: WebSocket, n: int, text: str, st: dict, ms: dict):
             hits = await asyncio.to_thread(models.search, text, kb_vecs, kb_docs, 5)
         small = small_talk(text)
         intent, p = vote(st, "closing" if small else a["intent"]["choice"], a["intent"].get("confidence", 0))
-        st["moods"].append(a["mood"]["probabilities"]["angry"])
+        demand = bool(SUPERVISOR.search(text))  # Laya scored the ElevenLabs supervisor line 0.10 (agent's apology in the same chunk)
+        st["moods"].append(max(a["mood"]["probabilities"]["angry"], 0.9 if demand else 0))
         mood = sum(st["moods"][-3:]) / len(st["moods"][-3:])  # smoothed over the last 3 chunks
         st["high"] = st["high"] + 1 if mood >= MOOD_HIGH else 0
-        escalate = st["high"] >= 2
+        escalate = st["high"] >= 2 or demand
         await ws.send_json({"type": "signals", "id": n, "intent": intent, "intent_p": p, "mood": mood,
                             "mood_raw": st["moods"][-1], "escalate": escalate})
         if small and not escalate:  # keep the previous procedures and reply

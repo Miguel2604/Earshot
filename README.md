@@ -13,7 +13,7 @@ A floating panel (always on top, Cmd+\ to hide) next to the agent's CRM:
 - **Intent + mood every 5 s:** an intent chip and a mood meter; when the customer stays upset, an **escalation banner** pins the de-escalation procedure.
 - **Right procedure, mid-call:** knowledge-base search over `engine/kb/*.md`, plus a drafted **"Say this"** reply grounded in it.
 - **After-call notes:** category / priority / disposition (dropdowns with confidence), summary and follow-up, editable, **Copy to CRM**.
-- **Demo call:** the header button streams `engine/demo/call.wav` (a 66 s Taglish double-charge call; currently a macOS `say` placeholder made by `engine/demo/make_demo.sh`, to be replaced by a real 2-person recording) through the same pipeline, so the demo never depends on a live mic.
+- **Demo call:** the header button streams `engine/demo/call.wav` (a 64 s Taglish double-charge call voiced with ElevenLabs, built by `engine/demo/elevenlabs/build.sh`; the older macOS `say` version is `call-tts.wav`) through the same pipeline, so the demo never depends on a live mic.
 
 ## Why local
 BPO clients forbid pasting customer data into cloud AI tools (client contracts, Data Privacy Act RA 10173). Agents need suggestions in real time, mid-call. Local inference makes both possible: no data egress, no per-call API cost, works with the network unplugged.
@@ -53,7 +53,7 @@ More screenshots: `docs/phase-*.png`.
 ## Disclosures
 - **Models:** Whisper large-v3-turbo (OpenAI, MIT, MLX conversion by mlx-community), EmbeddingGemma 2 (Google, Apache 2.0), Gemma 4 E4B-it 4-bit MLX (Google, Apache 2.0; conversion by mlx-community), Laya multilingual (Convai Innovations, Apache 2.0).
 - **Frameworks:** Tauri, SvelteKit, FastAPI, MLX, mlx-whisper, mlx-vlm, sentence-transformers, PyTorch.
-- **Cloud APIs:** none.
+- **Cloud APIs:** none at runtime. The demo-call audio was voiced once with ElevenLabs (via Puter) before the event.
 - **Design reference:** `DESIGN.md` from getdesign.md (Airtable analysis), used as a style starting point.
 - **Prior work:** the idea of AI call classification is inspired by the team's earlier Neosolve project (Agora Voice AI Hackathon); no code reused.
 - **AI dev tools:** Claude Code.

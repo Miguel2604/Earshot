@@ -9,3 +9,4 @@ __pycache__/
 *.log
 # model weights live in ~/models, never in the repo
 *.safetensors
+engine/demo/elevenlabs/clips/

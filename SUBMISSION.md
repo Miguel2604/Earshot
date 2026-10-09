@@ -9,10 +9,10 @@ Earshot
 An on-device AI copilot for Filipino call center agents. It listens to the call, shows a live Taglish transcript with English subtitles, masks card and phone numbers as they're spoken, tracks the customer's mood and pulls up the right procedure, drafts what to say next, and writes the after-call notes. Four local models on a MacBook; zero bytes of customer data leave the laptop.
 
 ## Team
-TODO: names + roles (Miguel Kalaw, ...)
+Neosolve: Miguel Kalaw, Kean Rosales
 
 ## GitHub repo
-TODO: https://github.com/TODO/earshot (must be **public** before 10:00 AM)
+https://github.com/Miguel2604/Earshot (public)
 
 ## Hardware
 MacBook, Apple M5, 24 GB unified memory. All inference runs on the Mac's GPU (MLX and PyTorch MPS).
@@ -43,7 +43,7 @@ In the repo under `docs/`:
 Tauri 2, SvelteKit (Svelte 5), FastAPI, MLX, mlx-whisper, mlx-vlm, sentence-transformers, PyTorch, uv.
 
 ## APIs
-None. No cloud AI or any other external API.
+Cloud APIs: none at runtime. The demo-call audio was voiced once with ElevenLabs (via Puter) before the event.
 
 ## Existing code
 None. Scaffolded and built during the hackathon. Style reference: `DESIGN.md` (getdesign.md's Airtable analysis). The idea of AI call classification is inspired by the team's earlier Neosolve project; no code reused.
@@ -67,20 +67,25 @@ Because in a call center, cloud AI isn't an option. Without local inference, Ear
 **X (≤280 chars):**
 > Earshot: an on-device AI copilot for Filipino call center agents. Live Taglish transcript + English subtitles, card numbers masked as they're spoken, mood-triggered escalation, drafted replies and notes. 4 local models, Wi-Fi off, 0 bytes to the cloud. @cognition @DevinAI #AppBuildersPH
 
-**LinkedIn:**
-> We built **Earshot** at the AppBuildersPH Hackathon 2026 (theme: Local AI).
+**LinkedIn** (upload the demo video natively to the post, not as a link):
+> Customer data can't leave a call center, so we built an AI copilot that never sends it anywhere.
 >
-> Call center agents in the Philippines juggle an upset customer, a knowledge base and after-call notes at the same time, and they can't paste customer data into cloud AI. So we made a copilot that runs entirely on the agent's laptop:
+> Meet **Earshot**, built in 24 hours at the AppBuildersPH Hackathon 2026 (theme: Local AI) by team Neosolve, @Miguel Kalaw and @Kean Rosales.
+>
+> Filipino call center agents juggle an upset caller, a knowledge base and after-call notes at once, and BPO contracts plus the Data Privacy Act keep them from pasting customer data into cloud AI. Earshot runs entirely on the agent's laptop:
 > • live Taglish transcript with English subtitles
 > • card and phone numbers masked as they're spoken (•••• 4821)
-> • mood meter that pins the de-escalation script when a caller gets angry
+> • a mood meter that pins the de-escalation script when a caller gets angry
 > • the right procedure and a "say this" reply, mid-call
-> • structured after-call notes, ready to paste into the CRM
+> • after-call notes, ready to paste into the CRM
 >
-> Four local models on a MacBook M5 (Whisper, Gemma 4, Laya, EmbeddingGemma 2). We demo it with Wi-Fi off: zero bytes leave the laptop.
+> Four local models on a MacBook M5 (Whisper, Gemma 4, Laya, EmbeddingGemma 2). Under 2.5 s of compute per 5 s of audio, so it keeps up with the call. In the video, Wi-Fi is off: zero bytes leave the laptop.
 >
-> Demo: TODO video link · Code: TODO repo link
-> Thanks @Cognition / @Devin and the AppBuildersPH team. #AppBuildersPH
+> Code: https://github.com/Miguel2604/Earshot
+>
+> Thanks @Cognition, @Devin and the AppBuildersPH team. See you at Demo Day, Cyberzone SM Makati!
+>
+> #AppBuildersPH #LocalAI #OnDeviceAI #BPO
 
 (Check the exact handles when posting: Devin / Cognition on X and LinkedIn.)
 

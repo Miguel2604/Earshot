@@ -1,6 +1,8 @@
 # Phase 11: ElevenLabs demo voices (via Puter) — generation notes
 
-## Status: BLOCKED on Puter sign-in (2026-10-10)
+## Status: DONE. Miguel generated the clips; `build.sh` (0.2 s gap before the card line, see there) now writes `call.wav` directly; the `say` version is `call-tts.wav`. History below.
+
+## Earlier status: BLOCKED on Puter sign-in (2026-10-10)
 
 **For Miguel: sign in to Puter in the browser pane, then rerun Phase 11 generation.**
 

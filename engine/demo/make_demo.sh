@@ -1,7 +1,7 @@
 #!/bin/sh
 # Placeholder demo call (TTS) until a real 2-person recording replaces call.wav (PLAN Phase 6).
 # Taglish double-charge story: customer charged twice, gets angry, reads a card number, agent calms them.
-# Needs macOS `say` + ffmpeg. Output: call.wav, 16 kHz mono 16-bit, ~66 s.
+# Needs macOS `say` + ffmpeg. Output: call-tts.wav (the old placeholder; call.wav is the ElevenLabs version), 16 kHz mono 16-bit, ~66 s.
 # Note: `say` voices change across macOS updates, so a rerun won't match the committed call.wav byte for byte
 # (that one was verified end to end; rerun the scripted /ws/demo check after regenerating).
 set -e
@@ -23,6 +23,6 @@ line "$C" "Ayoko na ng sorry! Gusto ko makausap ang supervisor ninyo, ngayon din
 line "$A" "Naiintindihan ko po kayo, and I apologize for the trouble. I can see the double charge. I will file a refund today, and it will be credited in five to seven banking days."
 line "$C" "Sige, okay. Basta i-text niyo ako pag na-process na."
 line "$A" "Opo, you will get an SMS confirmation. Salamat po sa pasensya, and thank you for calling Fiberlink."
-ffmpeg -loglevel error -y -f concat -safe 0 -i "$tmp/list.txt" -ar 16000 -ac 1 -c:a pcm_s16le call.wav
+ffmpeg -loglevel error -y -f concat -safe 0 -i "$tmp/list.txt" -ar 16000 -ac 1 -c:a pcm_s16le call-tts.wav
 rm -rf "$tmp"
-echo "wrote $(pwd)/call.wav"
+echo "wrote $(pwd)/call-tts.wav"
