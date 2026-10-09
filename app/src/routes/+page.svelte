@@ -26,7 +26,6 @@
   let micError = $state("");
   let copied = $state(false);
   let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
-  const native = "__TAURI_INTERNALS__" in window; // native window already blurs the desktop (hudWindow vibrancy): lighter tint
 
   let transcriptEl: HTMLElement;
   $effect(() => {
@@ -152,7 +151,7 @@
 
 <svelte:window bind:online />
 
-<div class="panel" class:done={notes} class:native>
+<div class="panel" class:done={notes}>
   <header data-tauri-drag-region>
     <strong data-tauri-drag-region>Earshot</strong>
     <span class="badge" data-tauri-drag-region>{engineUp ? "On-device · offline" : "Loading models…"}</span>
@@ -234,8 +233,8 @@
 </div>
 
 <style>
-  /* Cluely-style smoked glass: a low-opacity dark tint over a heavy blur, so the desktop shows through.
-     Natively the blur is macOS vibrancy (tauri.conf.json windowEffects: hudWindow); in a browser it's backdrop-filter.
+  /* Cluely-style clear glass: no native vibrancy (every macOS material blurs the desktop away), an 8% wash plus a light
+     6px backdrop-filter, which in the transparent Tauri window frosts the desktop itself. Text shadows, not a tint, carry legibility.
      Light coral only for AI elements, headings 400–500, no web fonts (the app must work offline). */
   :global(:root) {
     --canvas: rgba(255, 255, 255, 0.1);
@@ -259,12 +258,11 @@
     background: transparent;
   }
   :global(body) { margin: 0; background: transparent; overflow: hidden; }
-  /* Fills the window; the native vibrancy layer is rounded to the same 16px. Text shadow keeps it readable on light wallpapers. */
+  /* Fills the window. Almost clear (8% wash) like Cluely; the text shadow, not a tint, keeps text readable on light and busy backdrops. */
   .panel { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px;
-    background: rgba(14, 16, 20, 0.55); backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%);
+    background: rgba(20, 20, 24, 0.08); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); overflow: hidden; }
-  .panel.native { background: rgba(14, 16, 20, 0.15); } /* hudWindow is already a dark tint */
+    text-shadow: 0 0 1px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.45); overflow: hidden; }
   header { display: flex; align-items: center; gap: 6px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
   header strong { font-weight: 500; font-size: 16px; }
   header button { padding: 6px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */

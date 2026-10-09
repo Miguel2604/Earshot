@@ -23,14 +23,7 @@
         "alwaysOnTop": true,
         "visibleOnAllWorkspaces": true,
         "shadow": false,
-        "visible": false,
-        "windowEffects": {
-          "effects": [
-            "hudWindow"
-          ],
-          "state": "active",
-          "radius": 16
-        }
+        "visible": false
       }
     ],
     "security": {
