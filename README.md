@@ -4,8 +4,21 @@ On-device AI copilot for Philippine call center agents. It transcribes the call,
 
 Built for AppBuildersPH Hackathon 2026 (theme: Local AI).
 
+<img src="docs/phase-6.png" width="380" alt="Earshot mid-call: Say-this reply, pinned de-escalation script, mood meter, escalation banner, masked card number, Taglish lines with English subtitles">
+
+## What it does
+A floating panel (always on top, Cmd+\ to hide) next to the agent's CRM:
+- **Live Taglish transcript** with an **English subtitle** under each line.
+- **PII masked as it's spoken:** card numbers, phone numbers, account numbers and emails show as `•••• 4821` before any text reaches the UI, search or notes.
+- **Intent + mood every 5 s:** an intent chip and a mood meter; when the customer stays upset, an **escalation banner** pins the de-escalation procedure.
+- **Right procedure, mid-call:** knowledge-base search over `engine/kb/*.md`, plus a drafted **"Say this"** reply grounded in it.
+- **After-call notes:** category / priority / disposition (dropdowns with confidence), summary and follow-up, editable, **Copy to CRM**.
+- **Demo call:** the header button streams `engine/demo/call.wav` (a 66 s Taglish double-charge call; currently a macOS `say` placeholder made by `engine/demo/make_demo.sh`, to be replaced by a real 2-person recording) through the same pipeline, so the demo never depends on a live mic.
+
 ## Why local
 BPO clients forbid pasting customer data into cloud AI tools (client contracts, Data Privacy Act RA 10173). Agents need suggestions in real time, mid-call. Local inference makes both possible: no data egress, no per-call API cost, works with the network unplugged.
+
+Measured on the demo MacBook (M5, 24 GB), per 5 s audio chunk: Whisper ~0.4 s, English subtitle 0.4–0.8 s, Laya intent + mood + KB search ~0.07 s, "say this" reply 0.5–1.2 s. That's under 2.5 s of work per 5 s of audio, so it keeps up with the call; each line appears ~0.4 s after it's spoken. Notes take ~2 s after the call ends. Models load in ~15–25 s at startup.
 
 ## Stack
 | Layer | Tech |
@@ -31,7 +44,11 @@ Requires macOS on Apple Silicon, [uv](https://docs.astral.sh/uv/), pnpm, Rust.
 cd engine && uv sync && cd ..
 cd app && pnpm install && pnpm tauri dev
 ```
-`pnpm tauri dev` starts the engine automatically; the first launch takes ~20 s to load models.
+`pnpm tauri dev` starts the engine automatically; the first launch takes ~20 s to load models (badge: "Loading models…" → "On-device · offline"). Then click **Demo call**, or **Start call** to use the mic.
+
+Engine only: `cd engine && uv run uvicorn server:app --port 8765`, then `curl 127.0.0.1:8765/health`. Checks without models: `uv run python test_masking.py` (also `test_signals.py`, `test_chunking.py`).
+
+More screenshots: `docs/phase-*.png`.
 
 ## Disclosures
 - **Models:** Whisper large-v3-turbo (OpenAI, MIT, MLX conversion by mlx-community), EmbeddingGemma 2 (Google, Apache 2.0), Gemma 4 E4B-it 4-bit MLX (Google, Apache 2.0; conversion by mlx-community), Laya multilingual (Convai Innovations, Apache 2.0).
