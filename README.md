@@ -53,7 +53,7 @@ More screenshots: `docs/phase-*.png`.
 ## Disclosures
 - **Models:** Whisper large-v3-turbo (OpenAI, MIT, MLX conversion by mlx-community), EmbeddingGemma 2 (Google, Apache 2.0), Gemma 4 E4B-it 4-bit MLX (Google, Apache 2.0; conversion by mlx-community), Laya multilingual (Convai Innovations, Apache 2.0).
 - **Frameworks:** Tauri, SvelteKit, FastAPI, MLX, mlx-whisper, mlx-vlm, sentence-transformers, PyTorch.
-- **Cloud APIs:** none at runtime. The demo-call audio was voiced once with ElevenLabs (via Puter) before the event.
+- **Cloud APIs:** the demo-call audio was voiced once with ElevenLabs (via Puter) during the build; nothing calls the cloud at runtime.
 - **Design reference:** `DESIGN.md` from getdesign.md (Airtable analysis), used as a style starting point.
 - **Prior work:** the idea of AI call classification is inspired by the team's earlier Neosolve project (Agora Voice AI Hackathon); no code reused.
 - **AI dev tools:** Claude Code.

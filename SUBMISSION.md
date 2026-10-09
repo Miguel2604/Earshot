@@ -43,7 +43,7 @@ In the repo under `docs/`:
 Tauri 2, SvelteKit (Svelte 5), FastAPI, MLX, mlx-whisper, mlx-vlm, sentence-transformers, PyTorch, uv.
 
 ## APIs
-Cloud APIs: none at runtime. The demo-call audio was voiced once with ElevenLabs (via Puter) before the event.
+Cloud APIs: the demo-call audio was voiced once with ElevenLabs (via Puter) during the build; nothing calls the cloud at runtime.
 
 ## Existing code
 None. Scaffolded and built during the hackathon. Style reference: `DESIGN.md` (getdesign.md's Airtable analysis). The idea of AI call classification is inspired by the team's earlier Neosolve project; no code reused.

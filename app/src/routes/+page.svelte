@@ -66,7 +66,11 @@
   }
   checkEngine();
 
+  let run = 0; // bumped per call: a previous call's late /notes or /qa reply is dropped
+
   function openCall(path: string) {
+    run++;
+    writingNotes = false;
     lines = [];
     signals = null;
     reply = "";
@@ -150,16 +154,21 @@
     live = false;
     busy = null;
     if (!lines.length) return;
+    const mine = run;
     writingNotes = true;
     const post = (path: string) => fetch(`http://${ENGINE}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ transcript: lines.map((l) => l.text).join("\n") }),
     }).then((r) => r.json());
-    notes = await post("/notes");
+    const n = await post("/notes");
+    if (mine !== run) return;
+    notes = n;
     writingNotes = false;
     // Each compliance alert is a failed QA step, on top of Gemma's checklist.
-    qa = [...alerts.map((a) => ({ label: `No ${a.rule} ask`, done: false, quote: a.text })), ...(await post("/qa")).steps]; // after notes, so the notes still land in ~2 s; the checklist ~3 s later
+    const steps = (await post("/qa")).steps;
+    if (mine !== run) return;
+    qa = [...alerts.map((a) => ({ label: `No ${a.rule} ask`, done: false, quote: a.text })), ...steps]; // after notes, so the notes still land in ~2 s; the checklist ~3 s later
   }
 
   // "Copy to CRM": plain text the agent pastes into the CRM's notes field (includes their edits).
@@ -326,7 +335,9 @@
   .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai-line); }
   .transcript { flex: 1 1 0; min-height: 96px; }
   .notes { flex: 2 1 0; min-height: 0; }
-  .done .suggest { max-height: 22%; } /* call over: the notes are what the agent works on now */
+  /* call over: the notes are what the agent works on now (the alert lives on as a failed QA chip) */
+  .done .suggest, .done .signals, .done .escalate { display: none; }
+  .done .transcript { flex: 0 0 auto; min-height: 0; max-height: 72px; }
   h2 { font-weight: 500; font-size: 13px; line-height: 1.5; letter-spacing: 0.2px; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   .ai { font-weight: 500; font-size: 11px; line-height: 1.4; color: var(--ai); background: var(--ai-tint); border: 1px solid var(--ai-line); padding: 1px 8px; border-radius: 999px; }
   p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }

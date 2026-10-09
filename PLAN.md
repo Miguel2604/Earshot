@@ -57,6 +57,11 @@ Tauri window (SvelteKit)                 engine/ (Python, 127.0.0.1:8765)
 Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tuned on their benchmark). Fine-tuning tonight is out of scope. **Fallback if mood stays flat on real voices:** EmbeddingGemma 2 against ~5 labeled Taglish examples per mood level (~20 ms, no new model).
 
 ## Status
+### Demo rehearsal ✅ done (Sat 01:30; screen was locked, so driven in the browser at localhost:1420, 420x720)
+- **Fixed:** notes card only showed 147 of 437 px at call end → after the call the reply card, signals and banners hide (the CVV alert lives on as the failed QA chip) and the transcript shrinks to 72 px; notes now fit with no scroll. A late `/notes` or `/qa` from a previous call can't land in a new one (run counter); `writingNotes` resets per call. QA "Supervisor callback" needs a callback quote (`MUST` in `server.py`), so it's no longer ticked on the apology line (UI QA 4/6, `/qa` 4/5). README/SUBMISSION disclosure: voiced "during the build".
+- **Beats (3 runs, from click; same in `check_demo.py`):** subtitle 6.1, billing KB 11.1, first reply 12.2 (Taglish), CVV alert + `•••` 30.4, `•••• 4821` 40.4, escalation 46.1 (supervisor line; none before), cleared 61.1, end 65.3, notes +2.0 s, QA +2.5 s; Earshot egress 0 B. Second Demo call click resets everything. Nothing overflows 420 px.
+- **Not done (screen locked):** native-window frames (`docs/demo-beat-*.png`) and the 40-frame flicker burst. Miguel: do one native run before stage.
+
 ### Phase 0: scaffold ✅ done
 - Tauri 2 + SvelteKit app, engine auto-start, 3-panel UI with `DESIGN.md` tokens.
 - Engine: `/health`, `/ws/call` (transcript + top-3 KB hits), `/notes` (JSON notes). Verified end to end with a test clip.

@@ -1,6 +1,6 @@
-# Handoff: Earshot (Phases 0–8 (slim) and 11 done; Phase 10 + demo rehearsal next; Miguel records, posts, pushes and submits)
+# Handoff: Earshot (Phases 0–8 (slim), 10, 11 and the demo rehearsal done; next: demo video; Miguel records, posts, pushes and submits)
 
-You are picking up a hackathon project at the finish line. Read this, then `PLAN.md`. Phases 0–6 (code side), the QA Stretch item, the Cluely UI pass and overnight Phase 7 are done; next is Phase 8, then 9–11 (see PLAN "Overnight phases 7–11"), plus Miguel's list (see "For Miguel when he wakes up"). Don't re-litigate the decisions below; the user already made them.
+You are picking up a hackathon project at the finish line. Read this, then `PLAN.md`. Phases 0–8 (slim), 10, 11, the QA Stretch item, the Cluely UI pass and the demo rehearsal are done (Phase 9 skipped); next is the demo video, plus Miguel's list (see "For Miguel when he wakes up"). Don't re-litigate the decisions below; the user already made them.
 
 ## Situation
 - **Event:** AppBuildersPH Hackathon 2026, theme **Local AI** (https://appbuildersph.com/hackathon/). **Code freeze 10:00 AM Sat Oct 10, 2026, no extensions.** Judges review the public GitHub repo as of the deadline. Demo Day is in person, on the user's MacBook.
@@ -129,25 +129,18 @@ The frontend also runs in a normal browser at `http://localhost:1420` while `tau
 - Scripted demo check: `cd engine && uv run --offline python check_demo.py` while the engine is up. Prints each WS message with its time, asserts no raw card digits, POSTs `/notes`, and ends with a `BEATS` line (first time each beat fired).
 
 ## For Miguel when he wakes up
-Code freeze **10:00 AM today (Sat Oct 10)**. In order:
-1. *(Optional now: `call.wav` is the ElevenLabs call and passes every beat.)* **Record the real call** (60–90 s, 2 people, Taglish): double charge → customer gets angry, reads out a card number (say the digits as numbers, e.g. "4111 2222 3333 4821"), asks for a supervisor → agent apologizes, files a refund, promises an SMS. Convert and drop it in:
-   ```bash
-   ffmpeg -i ~/Desktop/call.m4a -ac 1 -ar 16000 -sample_fmt s16 engine/demo/call.wav
-   ```
-   (Keep the placeholder somewhere if you want a fallback: `cp engine/demo/call.wav engine/demo/call-11labs.wav` first.)
-2. **Re-check thresholds on it:** start the engine (`cd engine && uv run uvicorn server:app --port 8765`) and run Demo call in the app (or `cd engine && uv run --offline python check_demo.py` in a second terminal; read the `BEATS` line). Look for: card shows as `•••• 4821` (digits spoken as words are *not* masked; if Whisper writes them as words, ask an agent to extend `mask()`), escalation banner right after the outburst and not before (`MOOD_HIGH = 0.5` + 2-chunk rule in `server.py`), billing procedure on top through the end, first "say this" fits the topic, notes say billing / follow-up.
-3. **Manual checks still pending** (need you at the keyboard): press **Cmd+\** in `pnpm tauri dev` (hide/show); click **Start call** once and accept the mic prompt; click **Copy to CRM** in the native window and `pbpaste`; the **Wi-Fi-off rehearsal** (PLAN Phase 5 checklist).
-4. **Record the demo video** (60–90 s): shot list at the bottom of `SUBMISSION.md`.
-5. **Post** on X or LinkedIn: drafts in `SUBMISSION.md` (tag Devin / Cognition, #AppBuildersPH; check the handles).
-6. **GitHub:** create the repo, make it **public**, add the remote, push `main` (not `bantai`):
-   ```bash
-   gh repo create earshot --public --source . --remote origin --push
-   ```
-7. **Submit on Cerebral Valley** with `SUBMISSION.md` (fill the `TODO`s: team, repo URL, video link) **before 10:00 AM**.
+Code freeze **10:00 AM today (Sat Oct 10)**.
+
+**On stage (the demo):**
+1. Before: quit stray instances (`pgrep -fl "uvicorn|earshot|vite|tauri"`), then `cd app && pnpm tauri dev`. The panel docks top-right; wait until the badge says "On-device · offline" (~25 s model load). Volume up (the call audio plays).
+2. Click **Demo call**. What appears (seconds from click): 6 s first line + English subtitle · 11 s "Billing dispute" procedure + Billing chip · 12 s Taglish "Say this" · 30 s red CVV banner ("Never ask for the CVV — PCI rule"), CVV shows as `•••` · 40 s card shows as `•••• 4821` · 46 s escalation banner + de-escalation script pinned (after "Gusto ko makausap ang supervisor") · 61 s escalation clears · 65 s call ends → notes in 2 s (Billing / Medium / Follow-up, summary, Copy to CRM), QA chips 3 s later (4/6: CVV ask and supervisor callback missed, correctly). Footer stays "Earshot: 0 B, 0 connections".
+3. **Wi-Fi-off moment:** turn Wi-Fi off from the menu bar, footer dot says **Offline**; click **Demo call** again: same beats (each click resets the panel). "Zero bytes left this laptop."
+4. Still unchecked by an agent (screen was locked): one native run by eye (does the glass blink? text readable over your wallpaper?), Cmd+\, Copy to CRM + `pbpaste`, mic prompt on Start call.
+
+**Then:** record the demo video (shot list at the bottom of `SUBMISSION.md`), post (drafts in `SUBMISSION.md`), `gh repo create earshot --public --source . --remote origin --push` (main only), submit on Cerebral Valley before 10:00 (fill the `TODO`s). Optional real recording: `ffmpeg -i ~/Desktop/call.m4a -ac 1 -ar 16000 -sample_fmt s16 engine/demo/call.wav`, then `cd engine && uv run --offline python check_demo.py` and read `BEATS`.
 
 ## Next actions (agents)
-**Next: PLAN.md Phase 10** ("Say this" in the customer's language), then a **demo rehearsal pass** (`check_demo.py` + one Demo call in the app; every beat in PLAN Phase 11). Phases 7, 8 (slim, Live QA skipped) and 11 are done; Phase 9 not started. Any change to `call.wav` or Whisper settings: re-run `check_demo.py` (the digit-by-digit card makes Whisper loop if all four groups land in one chunk; see `build.sh`).
-
+**Next: the demo video with brag** (60–90 s, shot list in `SUBMISSION.md`). Phases 10 and the demo rehearsal are done (PLAN Status). Before any change: `check_demo.py` must still hit every beat; after: run it again. Native-window frames `docs/demo-beat-*.png` are still missing (screen was locked); capture them with `screencapture -x -R <window rect>` when the screen is unlocked.
 
 **Update 00:30:** Miguel approved an overnight run of PLAN.md **Phases 7–11** (live model strip + egress meter, compliance alerts + live QA, mood timeline, reply in the customer's language, ElevenLabs demo voices). Do them after the QA Stretch item is committed, with the guardrails at the top of that PLAN section (hard stop 08:00, every existing demo beat must still pass). That overrides "only if Miguel asks" below for those phases.
 

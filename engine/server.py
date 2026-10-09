@@ -390,6 +390,7 @@ QA_STEPS = [  # (checklist label, what Gemma looks for); from kb/telco.md's bill
     ("Confirm via SMS", "Promised an SMS or text confirmation"),
     ("Supervisor callback", "Offered a supervisor callback when the customer asked for a supervisor"),
 ]
+MUST = {"Supervisor callback": re.compile(r"call ?back|tatawag", re.I)}  # quote must name the promise, not just the demand
 
 
 def grounded(quote, transcript: str) -> bool:
@@ -416,5 +417,6 @@ async def qa(body: Transcript):
         j = models.parse_json(out)
     except ValueError:
         j = {}
-    return {"steps": [{"label": label, "done": grounded(q := j.get(str(i + 1)), body.transcript), "quote": mask(str(q or ""))}
+    return {"steps": [{"label": label, "done": grounded(q := j.get(str(i + 1)), body.transcript)
+                       and bool(MUST.get(label, re.compile("")).search(str(q))), "quote": mask(str(q or ""))}
                       for i, (label, _) in enumerate(QA_STEPS)]}
