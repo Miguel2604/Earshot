@@ -1,7 +1,7 @@
 [project]
-name = "kasama-engine"
+name = "earshot-engine"
 version = "0.1.0"
-description = "On-device AI engine for Kasama: speech-to-text, knowledge-base search, reply + call notes."
+description = "On-device AI engine for Earshot: speech-to-text, knowledge-base search, reply + call notes."
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.115",

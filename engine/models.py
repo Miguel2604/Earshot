@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")  # never reach out to Hugging Face at runtime
-MODELS = Path(os.environ.get("KASAMA_MODELS", "~/models")).expanduser()
+MODELS = Path(os.environ.get("EARSHOT_MODELS", "~/models")).expanduser()
 WHISPER = str(MODELS / "whisper-large-v3-turbo-mlx")
 EMBEDDER = str(MODELS / "embeddinggemma-2")
 LLM = str(MODELS / "gemma-4-e4b-it-4bit")

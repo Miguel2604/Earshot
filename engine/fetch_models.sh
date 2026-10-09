@@ -2,7 +2,7 @@
 # Downloads the four models into ~/models from ModelScope (Hugging Face is slow/unreliable from PH).
 # Big weight files are pulled in parallel byte ranges: ~25 MB/s vs ~1 MB/s single-stream.
 set -e
-DEST=${KASAMA_MODELS:-~/models}
+DEST=${EARSHOT_MODELS:-~/models}
 MS=https://modelscope.cn/models
 
 pdl() { # url out size chunks

@@ -1,4 +1,4 @@
-# Kasama
+# Earshot
 
 On-device AI copilot for Philippine call center agents. It transcribes the call, pulls up the right procedure from the company knowledge base as the customer talks, and drafts the after-call notes. **Everything runs on the agent's computer, so customer data never leaves the machine.**
 

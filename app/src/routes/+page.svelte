@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Kasama agent screen: live transcript | knowledge-base suggestions | after-call notes.
+  // Earshot agent screen: live transcript | knowledge-base suggestions | after-call notes.
   // Talks only to the local engine (127.0.0.1:8765), never the internet.
   const ENGINE = "127.0.0.1:8765";
   const CHUNK_SECONDS = 5;
@@ -83,7 +83,7 @@
 </script>
 
 <header>
-  <strong>Kasama</strong>
+  <strong>Earshot</strong>
   <span class="badge">{engineUp ? "On-device · offline ready" : "Loading local models…"}</span>
   <span class="spacer"></span>
   {#if live}

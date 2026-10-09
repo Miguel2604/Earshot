@@ -1,4 +1,4 @@
-"""Kasama engine: local HTTP/WebSocket API the Tauri app talks to. Nothing here calls the internet.
+"""Earshot engine: local HTTP/WebSocket API the Tauri app talks to. Nothing here calls the internet.
 
 Run: uv run uvicorn server:app --port 8765
 """

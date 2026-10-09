@@ -1,10 +1,10 @@
-# Handoff: Kasama (start implementation at PLAN.md Phase 1)
+# Handoff: Earshot (start implementation at PLAN.md Phase 1)
 
 You are picking up a hackathon project mid-build. Read this, then `PLAN.md`, then start Phase 1. Don't re-litigate the decisions below; the user already made them.
 
 ## Situation
 - **Event:** AppBuildersPH Hackathon 2026, theme **Local AI** (https://appbuildersph.com/hackathon/). **Code freeze 10:00 AM Sat Oct 10, 2026, no extensions.** Judges review the public GitHub repo as of the deadline. Demo Day is in person, on the user's MacBook.
-- **Product:** Kasama, an on-device copilot for Filipino call center agents: live transcript → mood + intent → KB procedure → drafted reply → masked after-call notes. "Kasama" is a working name.
+- **Product:** Earshot, an on-device copilot for Filipino call center agents: live transcript → mood + intent → KB procedure → drafted reply → masked after-call notes.
 - **Repo state:** `main` was reset to empty tonight; nothing is committed yet (the scaffold is untracked). An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
 
 ## Decisions already made (by the user)
@@ -49,7 +49,7 @@ models.decide(text, {
 | Path | What |
 |---|---|
 | `PLAN.md` | Phases, demo script, risks, submission checklist. **Source of truth for what to do next.** |
-| `engine/models.py` | The 4 model calls (`transcribe`, `embed_docs`/`search`, `decide`, `generate`) + `warm()`. Paths from `KASAMA_MODELS` (default `~/models`). |
+| `engine/models.py` | The 4 model calls (`transcribe`, `embed_docs`/`search`, `decide`, `generate`) + `warm()`. Paths from `EARSHOT_MODELS` (default `~/models`). |
 | `engine/server.py` | FastAPI app, WS pipeline, notes endpoint, global model lock. |
 | `engine/kb/telco.md` | Sample KB; each `## ` section is one retrievable procedure. |
 | `engine/fetch_models.sh` | ModelScope downloader (parallel byte ranges) for all 4 models. |

@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Kasama listens to the call on this computer to transcribe it locally. Audio never leaves the device.</string>
+  <string>Earshot listens to the call on this computer to transcribe it locally. Audio never leaves the device.</string>
 </dict>
 </plist>

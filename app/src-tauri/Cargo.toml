@@ -1,5 +1,5 @@
 [package]
-name = "kasama"
+name = "earshot"
 version = "0.1.0"
 description = "On-device call center copilot"
 authors = ["Miguel Kalaw"]

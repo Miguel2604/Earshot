@@ -409,7 +409,7 @@ wheels = [
 ]
 
 [[package]]
-name = "kasama-engine"
+name = "earshot-engine"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

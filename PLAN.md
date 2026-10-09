@@ -1,4 +1,4 @@
-# Kasama: implementation plan
+# Earshot: implementation plan
 
 **Deadline: 10:00 AM Sat Oct 10, 2026. Code freezes then; the repo must be public.** Demo Day is in person at Cyberzone, SM Makati, on a MacBook (M5, 24 GB). There is no Windows build.
 
@@ -6,7 +6,7 @@
 A desktop copilot for Filipino BPO agents: live call transcript → live mood + intent → matching knowledge-base procedure → drafted reply → masked after-call notes, all on-device.
 
 ## Judging (what we optimize for)
-| Weight | Criterion | How Kasama scores |
+| Weight | Criterion | How Earshot scores |
 |---|---|---|
 | 25% | Problem & usefulness | Clear user (BPO agents, a huge PH workforce); after-call work, KB lookup and angry callers are daily pain. |
 | 25% | Local AI implementation | Cloud AI is *not allowed* on customer data in most centers. Remove the local models and the product is gone. Show it working with Wi-Fi off. Four local models, each with one job. |
