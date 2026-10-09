@@ -233,39 +233,40 @@
 </div>
 
 <style>
-  /* Tokens from DESIGN.md (Airtable analysis): white canvas, hairline cards, near-black ink + primary,
-     signature coral reserved for AI elements. No web fonts: the app must work offline.
-     The window itself is transparent; the .panel is the visible glass overlay. */
+  /* Cluely-style dark glass: translucent white-on-smoke tokens over native macOS vibrancy
+     (tauri.conf.json windowEffects: hudWindow blurs the desktop behind the window).
+     Coral stays reserved for AI elements. No web fonts: the app must work offline. */
   :global(:root) {
-    --canvas: #ffffff;
-    --surface: #ffffff;
-    --surface-soft: #f8fafc;
-    --hairline: #dddddd;
-    --surface-strong: #e0e2e6;
-    --ink: #181d26;
-    --body: #333840;
-    --muted: #41454d;
-    --primary: #181d26;
-    --primary-active: #0d1218;
-    --ai: #aa2d00; /* signature coral */
-    --border-strong: #9297a0;
+    --canvas: rgba(255, 255, 255, 0.08);
+    --surface: rgba(255, 255, 255, 0.05);
+    --surface-soft: rgba(255, 255, 255, 0.08);
+    --hairline: rgba(255, 255, 255, 0.12);
+    --surface-strong: rgba(255, 255, 255, 0.15);
+    --ink: #f5f6f8;
+    --body: rgba(255, 255, 255, 0.85);
+    --muted: rgba(255, 255, 255, 0.6);
+    --primary: rgba(255, 255, 255, 0.92);
+    --primary-active: rgba(255, 255, 255, 0.75);
+    --ai: #f0602b; /* signature coral, brightened for dark glass */
+    --border-strong: rgba(255, 255, 255, 0.35);
+    color-scheme: dark;
     --success-border: #39bf45;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--body);
     background: transparent;
   }
   :global(body) { margin: 0; background: transparent; overflow: hidden; }
-  /* 8px inset so the CSS shadow isn't clipped by the window edge. */
-  .panel { box-sizing: border-box; height: calc(100vh - 16px); margin: 8px; display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px;
-    background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--hairline); border-radius: 16px; box-shadow: 0 8px 24px rgba(24, 29, 38, 0.12); overflow: hidden; }
+  /* Fills the window: the native vibrancy layer is the glass, rounded to the same 16px. */
+  .panel { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px;
+    background: rgba(18, 20, 24, 0.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
   header { display: flex; align-items: center; gap: 6px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
   header strong { font-weight: 500; font-size: 16px; }
   header button { padding: 8px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */
   .spacer { flex: 1; align-self: stretch; }
   .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
   button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 8px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; }
-  button.primary { background: var(--primary); color: #fff; }
+  button.primary { background: var(--primary); color: #111317; }
   button.primary:active { background: var(--primary-active); }
   button.secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
   button:disabled { opacity: 0.4; cursor: default; }
@@ -285,7 +286,7 @@
   .mood-label { font-weight: 500; font-size: 12px; color: var(--muted); }
   .meter { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-strong); overflow: hidden; }
   .meter span { display: block; height: 100%; background: var(--ai); transition: width 0.6s ease; }
-  .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 8px 8px 12px; border-radius: 12px; background: #fdf1ec; border: 1px solid var(--ai); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
+  .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(240, 96, 43, 0.15); border: 1px solid var(--ai); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
   .escalate button { padding: 6px 10px; font-size: 13px; }
   article { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai); }

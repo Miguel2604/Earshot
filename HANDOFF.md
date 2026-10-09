@@ -137,6 +137,8 @@ Code freeze **10:00 AM today (Sat Oct 10)**. In order:
 7. **Submit on Cerebral Valley** with `SUBMISSION.md` (fill the `TODO`s: team, repo URL, video link) **before 10:00 AM**.
 
 ## Next actions (agents)
+**Update 00:30:** Miguel approved an overnight run of PLAN.md **Phases 7–11** (live model strip + egress meter, compliance alerts + live QA, mood timeline, reply in the customer's language, ElevenLabs demo voices). Do them after the QA Stretch item is committed, with the guardrails at the top of that PLAN section (hard stop 08:00, every existing demo beat must still pass). That overrides "only if Miguel asks" below for those phases.
+
 Only the remaining Stretch items from PLAN.md (QA checklist is done), and only if Miguel asks (the code freeze is 10:00 AM; don't destabilize the demo):
 1. **Screenshot KB:** full EmbeddingGemma 2 (vision) indexing procedure screenshots.
 2. **Speaker labels** (agent vs customer) via two audio inputs, no diarization model.
