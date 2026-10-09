@@ -82,7 +82,11 @@ Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tune
 2. **Demo-call mode** (top priority): an engine endpoint that streams a WAV from `engine/demo/` in 5 s chunks through the same pipeline at real-time pace, plus a "Play demo call" button. This is what we show on stage.
 3. Chunking: add ~0.5 s overlap, or cut on silence, so words aren't split. Keep it simple.
 
-### Phase 2: live PII masking (cheap, high oomph)
+### Phase 2: live PII masking ✅ done
+- **Built:** `mask()` in `engine/server.py` runs on every transcript before it leaves the engine (so the UI, KB search and `/notes` only ever see masked text). One rule covers cards, PH mobiles and account numbers: any run of 7+ digits, allowing spaces/dots/dashes between groups (`4111 2222-3333.4821`, `0917 123 4567`, `+63 917-123-4567`), becomes `•••• 4821`; emails become `••••@domain`. Amounts/times (`1,299`, `5 to 7`, `10:30`) stay. **Split numbers:** `hold_tail()` holds digits at the very end of a chunk's text and prepends them to the next chunk, so Whisper's real output `For 111.` | `2222-3333-4821 …` is masked as one number. Held digits are flushed on the demo's last chunk. Check: `engine/test_masking.py`. Panel footer: "0 bytes sent to cloud · PII masked on-device" (static: the engine makes no network calls). The transcript card now auto-scrolls to the newest line.
+- **Verified:** `test_masking.py` + `test_chunking.py` ok, `pnpm check` 0 errors, `cargo build`, engine startup ~15 s, `/health` ok. Scripted `/ws/demo` client: 12 transcripts, the card arrives as `•••• 4821 Ibalik ni Iona young perico` at 35.4 s (~0.4 s after its audio), no raw card digits in any message; the preceding line ends `…card ko. For` (the `111` is held back). In the browser at `localhost:1420` under `pnpm tauri dev`: Demo call → masked line + footer visible, call auto-ends, notes generated from the masked transcript. Screenshot `docs/phase-2.png`.
+- **Not handled (by choice):** numbers Whisper writes as words ("four one one one", Tagalog "isa, dalawa"); the demo WAV's digits come out as numerals. Revisit with the real recording in Phase 6.
+- Spec:
 - Regex mask in the engine *before* any text is sent to the UI or stored: PH mobile numbers (`09xx`/`+639xx`), card numbers (13–19 digits, Luhn optional), account numbers, emails. Show `•••• 4821`.
 - Header counter: "0 bytes sent to cloud".
 

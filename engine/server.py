@@ -4,6 +4,7 @@ Run: uv run uvicorn server:app --port 8765
 """
 
 import asyncio
+import re
 import time
 import wave
 from contextlib import asynccontextmanager
@@ -63,29 +64,54 @@ def split_on_silence(pcm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return pcm[:cut], pcm[cut:]
 
 
-async def handle_chunk(ws: WebSocket, pcm: np.ndarray):
-    """One audio chunk through the pipeline: {"type":"transcript"} then {"type":"suggestions"}."""
+NUMBER = re.compile(r"\+?\d[\d\s.\-]*\d")  # digit groups split by spaces/dots/dashes: "2222-3333-4821"
+EMAIL = re.compile(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)+)")
+TAIL = re.compile(r"\+?\d[\d\s.\-]*[.,]?$")  # digits at the very end of a chunk may continue in the next one
+
+
+def mask(text: str) -> str:
+    """Mask PII before text leaves the engine: any run of 7+ digits (cards, PH mobiles, account numbers)
+    becomes "•••• 4821"; emails keep only the domain."""
+    def num(m):
+        d = re.sub(r"\D", "", m[0])
+        return f"•••• {d[-4:]}" if len(d) >= 7 else m[0]
+    return EMAIL.sub(r"••••@\1", NUMBER.sub(num, text))
+
+
+def hold_tail(text: str) -> tuple[str, str]:
+    """Split trailing digits off a chunk's text so a number cut across chunks ("For 111." | "2222-3333-4821")
+    is masked as one. Returns (text to send now, text to prepend to the next chunk)."""
+    m = TAIL.search(text)
+    return (text[: m.start()].rstrip(), m[0]) if m else (text, "")
+
+
+async def handle_chunk(ws: WebSocket, pcm: np.ndarray, held: str = "", final: bool = False) -> str:
+    """One audio chunk through the pipeline: {"type":"transcript"} then {"type":"suggestions"}.
+    `held` is trailing digits from the previous chunk; returns the new held text."""
     async with lock:
         text = await asyncio.to_thread(models.transcribe, pcm)
+    text, held = hold_tail(f"{held} {text}".strip()) if not final else (f"{held} {text}".strip(), "")
+    text = mask(text)
     if not text:
-        return
+        return held
     await ws.send_json({"type": "transcript", "text": text})
     async with lock:
         hits = await asyncio.to_thread(models.search, text, kb_vecs, kb_docs)
     await ws.send_json({"type": "suggestions", "items": [{"score": s, "text": d} for s, d in hits]})
     # TODO(plan phase 3): Gemma-drafted reply from top hit, sent as {"type":"reply"}
+    return held
 
 
 @app.websocket("/ws/call")
 async def call(ws: WebSocket):
     """Client streams binary chunks of 16 kHz mono float32 PCM (~5s each)."""
     await ws.accept()
-    carry = np.zeros(0, dtype=np.float32)
+    carry, held = np.zeros(0, dtype=np.float32), ""
     try:
         while True:
             pcm = np.concatenate([carry, np.frombuffer(await ws.receive_bytes(), dtype=np.float32)])
             now, carry = split_on_silence(pcm)
-            await handle_chunk(ws, now)
+            held = await handle_chunk(ws, now, held)
     except WebSocketDisconnect:
         pass
 
@@ -97,14 +123,15 @@ async def demo(ws: WebSocket):
     await ws.accept()
     with wave.open(str(DEMO_WAV)) as w:  # 16 kHz mono 16-bit (see demo/make_demo.sh)
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
-    t0, carry = time.monotonic(), audio[:0]
+    t0, carry, held = time.monotonic(), audio[:0], ""
     try:
         for i in range(0, len(audio), CHUNK):
             end = min(i + CHUNK, len(audio))
             await asyncio.sleep(max(0.0, t0 + end / SR - time.monotonic()))  # wait until this audio "has been spoken"
             pcm = np.concatenate([carry, audio[i:end]])
-            now, carry = split_on_silence(pcm) if end < len(audio) else (pcm, pcm[:0])  # last chunk: send it all
-            await handle_chunk(ws, now)
+            final = end >= len(audio)
+            now, carry = (pcm, pcm[:0]) if final else split_on_silence(pcm)  # last chunk: send it all
+            held = await handle_chunk(ws, now, held, final)
         await ws.send_json({"type": "end"})
     except (WebSocketDisconnect, RuntimeError):  # client hung up mid-demo
         pass

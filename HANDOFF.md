@@ -1,11 +1,11 @@
-# Handoff: Earshot (Phase 1 audio-in done; start PLAN.md Phase 2)
+# Handoff: Earshot (Phase 2 PII masking done; start PLAN.md Phase 3)
 
-You are picking up a hackathon project mid-build. Read this, then `PLAN.md`, then start Phase 2. Don't re-litigate the decisions below; the user already made them.
+You are picking up a hackathon project mid-build. Read this, then `PLAN.md`, then start Phase 3. Don't re-litigate the decisions below; the user already made them.
 
 ## Situation
 - **Event:** AppBuildersPH Hackathon 2026, theme **Local AI** (https://appbuildersph.com/hackathon/). **Code freeze 10:00 AM Sat Oct 10, 2026, no extensions.** Judges review the public GitHub repo as of the deadline. Demo Day is in person, on the user's MacBook.
 - **Product:** Earshot, an on-device copilot for Filipino call center agents: live transcript → mood + intent → KB procedure → drafted reply → masked after-call notes.
-- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay) and Phase 1 (demo-call mode, silence chunking) committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
+- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay), Phase 1 (demo-call mode, silence chunking) and Phase 2 (live PII masking) committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
 
 ## Decisions already made (by the user)
 - Demo on **Mac only** (Apple M5, 24 GB). No Windows build.
@@ -26,6 +26,7 @@ You are picking up a hackathon project mid-build. Read this, then `PLAN.md`, the
 - `WS /ws/call`: send binary 16 kHz mono float32 PCM → `{"type":"transcript"}` (~0.7 s per 5 s chunk), then `{"type":"suggestions","items":[{score,text}]}`. The engine cuts each chunk at its quietest 0.1 s in the last second and carries the rest into the next chunk (`split_on_silence`), so words aren't split.
 - **Demo-call mode (Phase 1):** `WS /ws/demo` streams `engine/demo/call.wav` through the same `handle_chunk` pipeline at real-time pace, then `{"type":"end"}`. The header's "Demo call" button opens it, plays `GET /demo/call.wav`, and auto-ends the call when `end` arrives (notes appear). Each transcript lands ~0.4–0.5 s after its audio. Screenshot: `docs/phase-1.png`.
 - `engine/demo/call.wav` is a **placeholder** (59 s, macOS `say` voices, regenerate with `engine/demo/make_demo.sh`): Taglish double charge, angry customer, card number `4111 2222 3333 4821`, agent files a refund. Replace with the real recording in Phase 6 (same filename, 16 kHz mono 16-bit WAV).
+- **PII masking (Phase 2):** every transcript goes through `mask()` in `engine/server.py` before it's sent, so the UI, KB search and notes only see masked text. Any run of 7+ digits (groups may be split by spaces/dots/dashes) → `•••• 4821` (cards, PH mobiles, account numbers); emails → `••••@domain`; short numbers (amounts, days, times) stay. `hold_tail()` holds digits at the end of a chunk and prepends them to the next one, so a number cut across chunks is masked as one. On the demo WAV the card shows as `•••• 4821 Ibalik ni Iona young perico` (35.4 s, ~0.4 s after its audio); the line before ends `…card ko. For`. Panel footer: "0 bytes sent to cloud" / "PII masked on-device". Transcript card auto-scrolls. Screenshot: `docs/phase-2.png`.
 - `POST /notes {"transcript": "..."}` → `{issue, resolution, disposition, follow_up}` in ~3.7 s.
 - `models.decide(text, questions)` returns Laya answers (~30–250 ms warm). **Not yet wired into the pipeline**; that's PLAN Phase 3.
 - **Overlay (Phase 0.5):** the window is a frameless, transparent, always-on-top 420x720 panel, visible on all Spaces, docked top-right of the work area with 24px margins on launch (`setup` in `lib.rs`), resizable. Header is the drag region. Stack: suggestion card (coral border) → live transcript (last 6 lines) → call notes (only once the call ends). Screenshot: `docs/phase-0.5.png`. **All later UI goes inside this panel.** `pnpm check` passes.
@@ -57,9 +58,10 @@ models.decide(text, {
 | `engine/server.py` | FastAPI app: `handle_chunk` pipeline, `/ws/call` (mic), `/ws/demo` (demo WAV), `/demo/*` static, `/notes`, global model lock. |
 | `engine/demo/` | `call.wav` (placeholder demo call) + `make_demo.sh` that generates it. |
 | `engine/test_chunking.py` | Assert check for `split_on_silence` (`uv run python test_chunking.py`, no models). |
+| `engine/test_masking.py` | Assert check for `mask`/`hold_tail`, using real Whisper output from the demo WAV (`uv run python test_masking.py`, no models). |
 | `engine/kb/telco.md` | Sample KB; each `## ` section is one retrievable procedure. |
 | `engine/fetch_models.sh` | ModelScope downloader (parallel byte ranges) for all 4 models. |
-| `app/src/routes/+page.svelte` | The whole UI: mic capture (ScriptProcessor, 5 s chunks), demo-call playback, WS client, the glass overlay panel, design tokens. |
+| `app/src/routes/+page.svelte` | The whole UI: mic capture (ScriptProcessor, 5 s chunks), demo-call playback, WS client, the glass overlay panel, "0 bytes sent to cloud" footer, design tokens. |
 | `app/src-tauri/src/lib.rs` | Spawns/kills the engine; docks + shows the overlay; registers Cmd+\. |
 | `app/src-tauri/tauri.conf.json` | Overlay window flags (`transparent`, `decorations:false`, `alwaysOnTop`, `visibleOnAllWorkspaces`, `visible:false` until docked) + `macOSPrivateApi`. |
 | `app/src-tauri/Info.plist` | macOS mic permission string. |
@@ -84,11 +86,16 @@ The frontend also runs in a normal browser at `http://localhost:1420` while `tau
 - Model jobs share one lock, so a long Gemma call delays the next transcript. See PLAN Phase 3 gating.
 - Whisper is forced to `language="tl"` in `models.transcribe`: auto-detect turned an Indian-accent TTS chunk into Hindi script; forced Tagalog still writes English words fine. Quality on *real* Taglish speech is still unknown (only TTS so far). Ask the user for a real recording; it replaces `engine/demo/call.wav` (PLAN Phase 6).
 - KB suggestions follow only the latest chunk, so a closing line ("thank you for calling") can push an unrelated procedure to the top at the end of the call. Phase 3's intent boost should fix it; don't patch it separately.
-- Whisper errors seen on the TTS demo: "Na charge ako ng Daloyang bes" (dalawang beses), "Bastard I text" (Basta i-text). The card number came out as `For 111.` + `2222-3333-4821` across two chunks, so Phase 2's regex must also mask runs of 4-digit groups, not only one contiguous 13–19 digit number.
+- Whisper errors seen on the TTS demo: "Na charge ako ng Daloyang bes" (dalawang beses), "Bastard I text" (Basta i-text). The card number came out as `For 111.` + `2222-3333-4821` across two chunks ("four" → "For"); masking handles it via `hold_tail`, but digits spoken as words ("four one one one", Tagalog numbers) are **not** masked. Check the real recording's transcript in Phase 6 and extend `mask()` only if needed.
+- Any new text that leaves the engine (Phase 3 translations, replies, signals text) must go through `mask()` too. Translate the *masked* chunk, not the raw one.
+- `hold_tail` delays digits at a chunk's end by one chunk (~5 s). On `/ws/call` (mic) a trailing held fragment is dropped if the call ends; on `/ws/demo` it's flushed on the last chunk.
+- The "0 bytes sent to cloud" footer is static text (true by construction: the engine makes no network calls, `HF_HUB_OFFLINE=1`). Phase 5 adds the `navigator.onLine` indicator next to it.
+- The built-in browser's screenshots save as JPEG under `~/.claude/projects/.../tool-results/`; convert with `sips -s format png <file> --out docs/phase-N.png`.
+- `tauri dev` binary is `app/src-tauri/target/debug/earshot`; killing `tauri dev` can leave it running. Check `pgrep -fl target/debug/earshot`.
 - `pkill -f "tauri dev"` leaves its `vite dev` child listening on 1420; kill it too (`lsof -nP -iTCP:1420 -sTCP:LISTEN`).
 
 ## Next actions
-1. Press Cmd+\ once in `pnpm tauri dev` to confirm the toggle, and click "Start call" once to accept the mic permission prompt by hand and confirm the transcript streams. If the webview can't capture, use the PLAN Phase 1.1 fallback (`sounddevice` in the engine).
-2. PLAN **Phase 2: live PII masking** in the engine before text leaves it (PH mobiles, cards incl. split `2222-3333-4821` groups, account numbers, emails → `•••• 4821`) + "0 bytes sent to cloud" header counter. Test it against the demo transcript.
-3. Phases 3 → 5 in order. Ask the user to record the 60–90 s Taglish mock call (PLAN Phase 6) and save it as `engine/demo/call.wav`. Start Phase 6 (video + submission) no later than 7:00 AM.
+1. PLAN **Phase 3**: Gemma English subtitle per (masked) chunk → `{"type":"translation"}` shown under each line; Laya intent + mood on the English text → `{"type":"signals"}`; intent chip + smoothed mood meter + escalation banner; KB intent boost; rule-gated Gemma "say this" reply → `{"type":"reply"}`. Respect the priority order and drop stale jobs under the single lock (PLAN Phase 3). Verify with the `/ws/demo` scripted client and a `docs/phase-3.png` screenshot.
+2. Still unverified from earlier phases (needs the user at the keyboard): press Cmd+\ once in `pnpm tauri dev`; click "Start call" once to accept the mic prompt. If the webview can't capture, use the PLAN Phase 1.1 fallback (`sounddevice` in the engine).
+3. Phases 4 → 5 in order. Ask the user to record the 60–90 s Taglish mock call (PLAN Phase 6) and save it as `engine/demo/call.wav`. Start Phase 6 (video + submission) no later than 7:00 AM.
 4. Commit early and often; ask the user before creating the GitHub remote or pushing. The repo must be public by 10:00 AM.

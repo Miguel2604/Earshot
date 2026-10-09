@@ -15,6 +15,12 @@
   let writingNotes = $state(false);
   let micError = $state("");
 
+  let transcriptEl: HTMLElement;
+  $effect(() => {
+    lines.length;
+    transcriptEl.scrollTop = transcriptEl.scrollHeight; // keep the newest line in view
+  });
+
   let ws: WebSocket | null = null;
   let stopAudio: (() => void) | null = null;
 
@@ -128,7 +134,7 @@
     {:else}<p class="muted">Matching procedures appear here as the customer talks.</p>{/each}
   </section>
 
-  <section class="card transcript">
+  <section class="card transcript" bind:this={transcriptEl}>
     <h2>Live transcript</h2>
     {#each lines.slice(-6) as line}<p>{line}</p>{:else}<p class="muted">{micError || "Start a call to see the transcript."}</p>{/each}
   </section>
@@ -144,6 +150,9 @@
       {/if}
     </section>
   {/if}
+
+  <!-- The engine makes no network calls; card numbers, mobiles and emails are masked there before reaching this UI. -->
+  <footer><span>0 bytes sent to cloud</span><span>PII masked on-device</span></footer>
 </div>
 
 <style>
@@ -190,6 +199,7 @@
   article { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
+  footer { flex: none; display: flex; justify-content: space-between; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
   dl { margin: 0; }
   dt { font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); text-transform: capitalize; margin-top: 10px; }
   dt:first-child { margin-top: 0; }
