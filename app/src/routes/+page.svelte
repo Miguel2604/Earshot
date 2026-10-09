@@ -5,11 +5,16 @@
   const CHUNK_SECONDS = 5;
 
   type Suggestion = { score: number; text: string };
+  type Line = { id: number; text: string; en?: string };
+  type Signals = { intent: string; intent_p: number; mood: number; escalate: boolean };
   type Notes = { issue?: string; resolution?: string; disposition?: string; follow_up?: string; raw?: string };
 
   let engineUp = $state(false);
   let live = $state(false);
-  let lines = $state<string[]>([]);
+  let lines = $state<Line[]>([]);
+  let signals = $state<Signals | null>(null);
+  let reply = $state("");
+  let flagged = $state(false);
   let suggestions = $state<Suggestion[]>([]);
   let notes = $state<Notes | null>(null);
   let writingNotes = $state(false);
@@ -36,12 +41,19 @@
 
   function openCall(path: string) {
     lines = [];
+    signals = null;
+    reply = "";
+    flagged = false;
     suggestions = [];
     notes = null;
     ws = new WebSocket(`ws://${ENGINE}${path}`);
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
-      if (m.type === "transcript") lines = [...lines, m.text];
+      // Every text field here was PII-masked in the engine before it was sent.
+      if (m.type === "transcript") lines = [...lines, { id: m.id, text: m.text }];
+      if (m.type === "translation") lines = lines.map((l) => (l.id === m.id ? { ...l, en: m.text } : l));
+      if (m.type === "signals") signals = m;
+      if (m.type === "reply") reply = m.text;
       if (m.type === "suggestions") suggestions = m.items;
       if (m.type === "end") endCall(); // demo call finished
     };
@@ -104,7 +116,7 @@
     const r = await fetch(`http://${ENGINE}/notes`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ transcript: lines.join("\n") }),
+      body: JSON.stringify({ transcript: lines.map((l) => l.text).join("\n") }),
     });
     notes = await r.json();
     writingNotes = false;
@@ -125,18 +137,35 @@
   </header>
 
   <section class="card suggest">
-    <h2><span class="ai">AI</span> Suggested procedure</h2>
+    <h2><span class="ai">AI</span> Say this</h2>
+    {#if reply}<p class="reply">{reply}</p>{/if}
     {#each suggestions as s, i}
       <article class:top={i === 0}>
         <small>{Math.round(s.score * 100)}% match</small>
         <p>{s.text}</p>
       </article>
-    {:else}<p class="muted">Matching procedures appear here as the customer talks.</p>{/each}
+    {:else}<p class="muted">Suggested replies and procedures appear here as the customer talks.</p>{/each}
   </section>
+
+  {#if signals}
+    <!-- Laya's live read of the call: a hint for the agent, never an action. -->
+    <div class="signals">
+      <span class="chip">{signals.intent[0].toUpperCase() + signals.intent.slice(1)} · {signals.intent_p.toFixed(2)}</span>
+      <span class="mood-label">Mood</span>
+      <span class="meter" title="Smoothed over the last 3 chunks"><span style="width: {Math.round(signals.mood * 100)}%"></span></span>
+      <span class="mood-label">{signals.mood >= 0.5 ? "Upset" : signals.mood >= 0.25 ? "Tense" : "Calm"}</span>
+    </div>
+    {#if signals.escalate}
+      <div class="escalate">
+        <span>Customer escalating. De-escalation script pinned.</span>
+        <button class="secondary" disabled={flagged} onclick={() => (flagged = true)}>{flagged ? "Supervisor flagged" : "Flag supervisor"}</button>
+      </div>
+    {/if}
+  {/if}
 
   <section class="card transcript" bind:this={transcriptEl}>
     <h2>Live transcript</h2>
-    {#each lines.slice(-6) as line}<p>{line}</p>{:else}<p class="muted">{micError || "Start a call to see the transcript."}</p>{/each}
+    {#each lines.slice(-6) as line}<p>{line.text}{#if line.en}<span class="en">{line.en}</span>{/if}</p>{:else}<p class="muted">{micError || "Start a call to see the transcript."}</p>{/each}
   </section>
 
   {#if writingNotes || notes}
@@ -164,6 +193,7 @@
     --surface: #ffffff;
     --surface-soft: #f8fafc;
     --hairline: #dddddd;
+    --surface-strong: #e0e2e6;
     --ink: #181d26;
     --body: #333840;
     --muted: #41454d;
@@ -179,8 +209,9 @@
   .panel { box-sizing: border-box; height: calc(100vh - 16px); margin: 8px; display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px;
     background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
     border: 1px solid var(--hairline); border-radius: 16px; box-shadow: 0 8px 24px rgba(24, 29, 38, 0.12); overflow: hidden; }
-  header { display: flex; align-items: center; gap: 8px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
+  header { display: flex; align-items: center; gap: 6px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
   header strong { font-weight: 500; font-size: 16px; }
+  header button { padding: 8px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */
   .spacer { flex: 1; align-self: stretch; }
   .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
   button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 8px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; }
@@ -196,6 +227,15 @@
   .ai { font-weight: 500; font-size: 12px; line-height: 1.4; color: #fff; background: var(--ai); padding: 2px 8px; border-radius: 6px; }
   p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }
   .muted { color: var(--muted); }
+  .reply { font-size: 16px; line-height: 1.45; color: var(--ink); margin-bottom: 12px; }
+  .en { display: block; font-size: 13px; color: var(--muted); font-style: italic; }
+  .signals { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .chip { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--ai); border: 1px solid var(--ai); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .mood-label { font-weight: 500; font-size: 12px; color: var(--muted); }
+  .meter { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-strong); overflow: hidden; }
+  .meter span { display: block; height: 100%; background: var(--ai); transition: width 0.6s ease; }
+  .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 8px 8px 12px; border-radius: 12px; background: #fdf1ec; border: 1px solid var(--ai); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
+  .escalate button { padding: 6px 10px; font-size: 13px; }
   article { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
