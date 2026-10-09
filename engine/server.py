@@ -224,13 +224,39 @@ class Transcript(BaseModel):
     transcript: str
 
 
+NOTE_QUESTIONS = {  # fixed lists -> dropdown-safe values; Laya answers them on Gemma's English summary
+    "category": {"type": "choice", "instructions": "What was the call about?", "criteria": {
+        "billing": "double charge, bill, payment, refund", "technical": "slow or no internet, modem, connection",
+        "cancellation": "cancel or end the subscription", "relocation": "moving house, transfer service to a new address",
+        "other": "general inquiry, anything else"}},
+    "priority": {"type": "choice", "instructions": "How urgent is the follow-up?", "criteria": {
+        "low": "nothing pending, simple question", "medium": "a pending action such as a refund, ticket or visit",
+        "high": "angry or escalated customer, service down, repeat complaint"}},
+    "disposition": {"type": "choice", "instructions": "How did the call end?", "criteria": {
+        "resolved": "fixed during the call, nothing pending", "follow-up": "refund, ticket or callback still pending",
+        "escalated": "handed to a supervisor", "unresolved": "no solution offered"}},
+}
+
+
 @app.post("/notes")
 async def notes(body: Transcript):
+    """Gemma writes only free text (summary, follow-up); Laya picks category/priority/disposition from fixed lists.
+    The transcript is already masked; Gemma's output is masked again before it leaves."""
     prompt = (
-        "You write after-call notes for a Philippine call center agent. Transcript (Taglish ok):\n"
+        "You write after-call notes for a Philippine call center agent. Transcript (Taglish, may have speech-to-text errors):\n"
         f"{body.transcript}\n\n"
-        "Reply with ONLY a JSON object with keys: issue, resolution, disposition, follow_up. English, concise."
+        'Reply with ONLY a JSON object: {"summary": "1-2 sentences in English: the issue and what was done", '
+        '"follow_up": "what the agent or company must still do, or None"}. '
+        "Use only facts stated in the transcript. Don't invent names, amounts, dates, or numbers."
     )
     async with lock:
-        out = await asyncio.to_thread(models.generate, prompt)
-    return models.parse_json(out) or {"raw": out}
+        out = await asyncio.to_thread(models.generate, prompt, 160)
+        try:
+            j = models.parse_json(out) or {"summary": out}
+        except ValueError:  # malformed JSON: keep the text, the agent edits it
+            j = {"summary": out}
+        summary, follow = mask(str(j.get("summary", ""))), mask(str(j.get("follow_up", "")))
+        a = await asyncio.to_thread(models.decide, f"{summary}\nFollow-up: {follow}", NOTE_QUESTIONS)
+    res = {k: {"value": a[k]["choice"], "confidence": a[k]["probabilities"][a[k]["choice"]],
+               "options": list(q["criteria"])} for k, q in NOTE_QUESTIONS.items()}
+    return res | {"summary": summary, "follow_up": follow}

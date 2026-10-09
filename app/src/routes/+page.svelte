@@ -7,7 +7,10 @@
   type Suggestion = { score: number; text: string };
   type Line = { id: number; text: string; en?: string };
   type Signals = { intent: string; intent_p: number; mood: number; escalate: boolean };
-  type Notes = { issue?: string; resolution?: string; disposition?: string; follow_up?: string; raw?: string };
+  type Pick = { value: string; confidence: number; options: string[] };
+  type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string };
+  const PICKS = ["category", "priority", "disposition"] as const;
+  const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
   let engineUp = $state(false);
   let live = $state(false);
@@ -19,6 +22,7 @@
   let notes = $state<Notes | null>(null);
   let writingNotes = $state(false);
   let micError = $state("");
+  let copied = $state(false);
 
   let transcriptEl: HTMLElement;
   $effect(() => {
@@ -46,6 +50,7 @@
     flagged = false;
     suggestions = [];
     notes = null;
+    copied = false;
     ws = new WebSocket(`ws://${ENGINE}${path}`);
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
@@ -121,9 +126,24 @@
     notes = await r.json();
     writingNotes = false;
   }
+
+  // "Copy to CRM": plain text the agent pastes into the CRM's notes field (includes their edits).
+  async function copyNotes() {
+    if (!notes) return;
+    const n = notes;
+    const text = [...PICKS.map((k) => `${cap(k)}: ${cap(n[k].value)}`), `Summary: ${n.summary}`, `Follow-up: ${n.follow_up}`].join("\n");
+    // execCommand runs synchronously inside the click, so it needs no clipboard permission (the browser pane denies
+    // navigator.clipboard); navigator.clipboard is the fallback.
+    const ta = Object.assign(document.createElement("textarea"), { value: text });
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    copied = ok || (await navigator.clipboard.writeText(text).then(() => true, () => false));
+  }
 </script>
 
-<div class="panel">
+<div class="panel" class:done={notes}>
   <header data-tauri-drag-region>
     <strong data-tauri-drag-region>Earshot</strong>
     <span class="badge" data-tauri-drag-region>{engineUp ? "On-device · offline" : "Loading models…"}</span>
@@ -173,9 +193,19 @@
       <h2><span class="ai">AI</span> Call notes</h2>
       {#if writingNotes}<p class="muted">Writing notes…</p>
       {:else if notes}
-        <dl>
-          {#each Object.entries(notes) as [k, v]}<dt>{k.replace("_", " ")}</dt><dd>{v}</dd>{/each}
-        </dl>
+        <!-- Dropdowns: Laya's pick from a fixed list (with confidence). Text: Gemma's draft. All editable. -->
+        <div class="picks">
+          {#each PICKS as k}
+            <label>{cap(k)} <small>{notes[k].confidence.toFixed(2)}</small>
+              <select bind:value={notes[k].value} onchange={() => (copied = false)}>
+                {#each notes[k].options as o}<option value={o}>{cap(o)}</option>{/each}
+              </select>
+            </label>
+          {/each}
+        </div>
+        <label>Summary <textarea rows="3" bind:value={notes.summary} oninput={() => (copied = false)}></textarea></label>
+        <label>Follow-up <textarea rows="2" bind:value={notes.follow_up} oninput={() => (copied = false)}></textarea></label>
+        <button class="primary copy" onclick={copyNotes}>{copied ? "Copied to clipboard" : "Copy to CRM"}</button>
       {/if}
     </section>
   {/if}
@@ -222,7 +252,8 @@
   .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; overflow-y: auto; min-height: 0; }
   .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai); }
   .transcript { flex: 1 1 0; min-height: 96px; }
-  .notes { flex: 0 1 auto; max-height: 40%; }
+  .notes { flex: 2 1 0; min-height: 0; }
+  .done .suggest { max-height: 22%; } /* call over: the notes are what the agent works on now */
   h2 { font-weight: 400; font-size: 16px; line-height: 1.5; color: var(--ink); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   .ai { font-weight: 500; font-size: 12px; line-height: 1.4; color: #fff; background: var(--ai); padding: 2px 8px; border-radius: 6px; }
   p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }
@@ -240,8 +271,12 @@
   article.top { border-color: var(--ai); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
   footer { flex: none; display: flex; justify-content: space-between; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
-  dl { margin: 0; }
-  dt { font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); text-transform: capitalize; margin-top: 10px; }
-  dt:first-child { margin-top: 0; }
-  dd { margin: 4px 0 0; font-size: 14px; color: var(--ink); }
+  .picks { display: flex; gap: 8px; }
+  .picks label { flex: 1; min-width: 0; }
+  label { display: block; font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); margin-bottom: 10px; }
+  select, textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink);
+    background: var(--canvas); border: 1px solid var(--hairline); border-radius: 6px; padding: 6px 8px; }
+  textarea { resize: vertical; }
+  select:focus, textarea:focus { outline: 2px solid #458fff; outline-offset: -1px; }
+  .copy { width: 100%; }
 </style>
