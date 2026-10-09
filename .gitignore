@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+app/build/
+app/.svelte-kit/
+app/src-tauri/target/
+app/src-tauri/gen/
+engine/.venv/
+__pycache__/
+*.log
+# model weights live in ~/models, never in the repo
+*.safetensors
