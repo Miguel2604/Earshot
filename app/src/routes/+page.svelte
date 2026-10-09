@@ -6,7 +6,7 @@
 
   type Suggestion = { score: number; text: string };
   type Line = { id: number; text: string; en?: string };
-  type Signals = { intent: string; intent_p: number; mood: number; escalate: boolean };
+  type Signals = { intent: string | null; intent_p: number; mood: number; escalate: boolean };
   type Pick = { value: string; confidence: number; options: string[] };
   type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string };
   const PICKS = ["category", "priority", "disposition"] as const;
@@ -173,7 +173,7 @@
   {#if signals}
     <!-- Laya's live read of the call: a hint for the agent, never an action. -->
     <div class="signals">
-      <span class="chip">{signals.intent[0].toUpperCase() + signals.intent.slice(1)} · {signals.intent_p.toFixed(2)}</span>
+      {#if signals.intent}<span class="chip">{signals.intent[0].toUpperCase() + signals.intent.slice(1)} · {signals.intent_p.toFixed(2)}</span>{/if}
       <span class="mood-label">Mood</span>
       <span class="meter" title="Smoothed over the last 3 chunks"><span style="width: {Math.round(signals.mood * 100)}%"></span></span>
       <span class="mood-label">{signals.mood >= 0.5 ? "Upset" : signals.mood >= 0.25 ? "Tense" : "Calm"}</span>

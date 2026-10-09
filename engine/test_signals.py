@@ -10,4 +10,11 @@ hits = [(0.70, server.kb_docs[0]), (0.68, server.kb_docs[1])]
 assert server.boosted(hits, "billing", False)[0][1].startswith("Billing")  # +0.05 bonus flips the order
 assert server.boosted(hits, "technical", False)[0][1].startswith("Slow")
 assert server.boosted(hits, None, True)[0][1].startswith("Angry")  # escalation pins the script on top
+assert server.small_talk("Good afternoon. Thank you for calling Fiberlink. How may I help you?") and server.small_talk("Fibberlink")
+assert not server.small_talk("Ho. Hi, yes. Na charge ako ng dalawang beses")
+st = server.new_call()  # call intent is the running best: one noisy chunk can't flip it
+assert server.vote(st, "closing", 0.9) == (None, 0)
+for i, p in [("billing", 0.86), ("billing", 0.99), ("technical", 0.70)]:
+    best, _ = server.vote(st, i, p)
+assert best == "billing"
 print("ok")

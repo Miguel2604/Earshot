@@ -102,16 +102,32 @@ QUESTIONS = {
     "mood": {"type": "choice", "instructions": "What is the speaker's tone?",
              "criteria": {"polite": "calm, friendly, thankful", "angry": "angry, demanding, complaining, impatient"}},
 }
+SMALL_TALK = re.compile(r"thank you for calling|how (may|can) i (help|assist)|salamat (po )?sa pagtawag", re.I)
 MOOD_HIGH = 0.5  # smoothed P(angry) at or above this for 2 chunks -> escalate; calibrated on the demo call
 
 
 def new_call() -> dict:
     """Per-connection state. seq counts chunks received; a job whose chunk number < seq is stale."""
-    return {"held": "", "seq": 0, "lines": [], "moods": [], "high": 0, "intent": None, "task": None}
+    return {"held": "", "seq": 0, "lines": [], "moods": [], "high": 0, "intent": None, "esc": False, "votes": {}, "task": None}
 
 
 def is_english(text: str) -> bool:
     return not TAGALOG & set(re.findall(r"[a-z']+", text.lower()))
+
+
+def small_talk(text: str) -> bool:
+    """Greetings, goodbyes and short fragments say nothing about the topic (Laya calls them `technical`, ~0.95)."""
+    return len(text.split()) < 3 or bool(SMALL_TALK.search(text))
+
+
+def vote(st: dict, intent: str, p: float) -> tuple[str | None, float]:
+    """The call's intent is the running best (summed Laya confidence), so one noisy chunk can't flip it.
+    Returns (call intent, its share of all votes)."""
+    if intent != "closing":  # small talk is passed in as "closing": no vote
+        st["votes"][intent] = st["votes"].get(intent, 0) + p
+    v = st["votes"]
+    best = max(v, key=v.get, default=None)
+    return best, (v[best] / sum(v.values()) if best else 0)
 
 
 def boosted(hits: list[tuple[float, str]], intent: str | None, escalate: bool) -> list[tuple[float, str]]:
@@ -158,16 +174,21 @@ async def enrich(ws: WebSocket, n: int, text: str, st: dict, ms: dict):
             a = await asyncio.to_thread(models.decide, en, QUESTIONS)
             hits = await asyncio.to_thread(models.search, text, kb_vecs, kb_docs, 5)
         tick("laya+kb", t)
-        intent, p = a["intent"]["choice"], a["intent"].get("confidence", 0)
+        small = small_talk(text)
+        intent, p = vote(st, "closing" if small else a["intent"]["choice"], a["intent"].get("confidence", 0))
         st["moods"].append(a["mood"]["probabilities"]["angry"])
         mood = sum(st["moods"][-3:]) / len(st["moods"][-3:])  # smoothed over the last 3 chunks
         st["high"] = st["high"] + 1 if mood >= MOOD_HIGH else 0
         escalate = st["high"] >= 2
         await ws.send_json({"type": "signals", "id": n, "intent": intent, "intent_p": p, "mood": mood,
                             "mood_raw": st["moods"][-1], "escalate": escalate})
+        if small and not escalate:  # keep the previous procedures and reply
+            print(f"chunk {n}: small talk, " + " ".join(f"{k} {v:.2f}s" for k, v in ms.items()), flush=True)
+            return
         hits = boosted(hits, intent, escalate)
         await ws.send_json({"type": "suggestions", "items": [{"score": s, "text": d} for s, d in hits]})
-        changed, st["intent"] = intent != st["intent"] and st["intent"] is not None, intent
+        changed = (intent, escalate) != (st["intent"], st["esc"])  # new topic, or escalation started/cleared
+        st["intent"], st["esc"] = intent, escalate
         if (REQUEST.search(text) or changed or escalate) and st["seq"] == n:  # plain-rule gate (Laya yes/no is unusable)
             t = time.monotonic()
             recent = "\n".join(st["lines"][-3:])
