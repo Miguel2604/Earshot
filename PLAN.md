@@ -63,6 +63,15 @@ Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tune
 - `models.decide(text, questions)` wraps Laya (loaded + warmed at startup, not yet called from the pipeline).
 - Sample KB: `engine/kb/telco.md` (fictional PH fiber ISP, 8 procedures).
 
+### Phase 0.5: Cluely-style overlay ✅ done
+- **Verified:** `pnpm check` (0 errors), `cargo build`, `pnpm tauri dev` starts cleanly and its engine answers `/health` → `{"ok":true,"kb_docs":8}`. Native window confirmed via `screencapture`: frameless, transparent, rounded glass panel docked top-right, on top of other apps. Browser render at `localhost:1420` saved to `docs/phase-0.5.png`. **Not verified:** the Cmd+\ toggle by keypress (no accessibility permission for synthetic keys here); the shortcut registers without error. Press it once by hand.
+- Spec:
+- Turn the Tauri window into a floating overlay instead of a normal app window: transparent, no title bar/decorations, always on top, visible on all workspaces/Spaces, about 420x720, docked top-right of the screen on launch (24px margins), resizable. macOS transparency needs `app.macOSPrivateApi: true` in tauri.conf.json plus the `macos-private-api` feature on the `tauri` crate.
+- Global shortcut Cmd+\ toggles show/hide (tauri-plugin-global-shortcut, registered in Rust).
+- Layout becomes one vertical glass panel: rounded 16px, white at ~92% opacity with backdrop blur, hairline border, soft shadow; the header bar is the drag region (data-tauri-drag-region) with the status badge and Start/End call button. Stack below it, top to bottom: suggestion/reply card (most important, always visible), live transcript (last few lines, scrolling), call notes (after the call ends). Keep DESIGN.md (Airtable) tokens; body background transparent.
+- Do NOT hide the window from screen capture (no content protection): the demo video must show it.
+- All later phases build their UI inside this overlay.
+
 ### Phase 1: reliable audio in (do first)
 1. Verify mic capture inside the Tauri window (`pnpm tauri dev`). The mic permission string is in `app/src-tauri/Info.plist`. If `getUserMedia` fails in the webview, move capture into the engine (`sounddevice`) and keep the same WS messages.
 2. **Demo-call mode** (top priority): an engine endpoint that streams a WAV from `engine/demo/` in 5 s chunks through the same pipeline at real-time pace, plus a "Play demo call" button. This is what we show on stage.

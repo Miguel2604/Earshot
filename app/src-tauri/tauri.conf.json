@@ -13,15 +13,23 @@
     "windows": [
       {
         "title": "Earshot",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 960,
-        "minHeight": 600
+        "width": 420,
+        "height": 720,
+        "minWidth": 340,
+        "minHeight": 420,
+        "resizable": true,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
+        "shadow": false,
+        "visible": false
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

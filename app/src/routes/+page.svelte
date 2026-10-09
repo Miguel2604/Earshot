@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Earshot agent screen: live transcript | knowledge-base suggestions | after-call notes.
+  // Earshot overlay: one floating glass panel. Suggestion card, then live transcript, then after-call notes.
   // Talks only to the local engine (127.0.0.1:8765), never the internet.
   const ENGINE = "127.0.0.1:8765";
   const CHUNK_SECONDS = 5;
@@ -82,24 +82,19 @@
   }
 </script>
 
-<header>
-  <strong>Earshot</strong>
-  <span class="badge">{engineUp ? "On-device · offline ready" : "Loading local models…"}</span>
-  <span class="spacer"></span>
-  {#if live}
-    <button class="primary" onclick={endCall}>End call</button>
-  {:else}
-    <button class="primary" disabled={!engineUp} onclick={startCall}>Start call</button>
-  {/if}
-</header>
+<div class="panel">
+  <header data-tauri-drag-region>
+    <strong data-tauri-drag-region>Earshot</strong>
+    <span class="badge" data-tauri-drag-region>{engineUp ? "On-device · offline" : "Loading models…"}</span>
+    <span class="spacer" data-tauri-drag-region></span>
+    {#if live}
+      <button class="primary" onclick={endCall}>End call</button>
+    {:else}
+      <button class="primary" disabled={!engineUp} onclick={startCall}>Start call</button>
+    {/if}
+  </header>
 
-<main>
-  <section class="card">
-    <h2>Live transcript</h2>
-    {#each lines as line}<p>{line}</p>{:else}<p class="muted">Start a call to see the transcript.</p>{/each}
-  </section>
-
-  <section class="card">
+  <section class="card suggest">
     <h2><span class="ai">AI</span> Suggested procedure</h2>
     {#each suggestions as s, i}
       <article class:top={i === 0}>
@@ -109,20 +104,28 @@
     {:else}<p class="muted">Matching procedures appear here as the customer talks.</p>{/each}
   </section>
 
-  <section class="card">
-    <h2><span class="ai">AI</span> Call notes</h2>
-    {#if writingNotes}<p class="muted">Writing notes…</p>
-    {:else if notes}
-      <dl>
-        {#each Object.entries(notes) as [k, v]}<dt>{k.replace("_", " ")}</dt><dd>{v}</dd>{/each}
-      </dl>
-    {:else}<p class="muted">Notes are drafted when the call ends.</p>{/if}
+  <section class="card transcript">
+    <h2>Live transcript</h2>
+    {#each lines.slice(-6) as line}<p>{line}</p>{:else}<p class="muted">Start a call to see the transcript.</p>{/each}
   </section>
-</main>
+
+  {#if writingNotes || notes}
+    <section class="card notes">
+      <h2><span class="ai">AI</span> Call notes</h2>
+      {#if writingNotes}<p class="muted">Writing notes…</p>
+      {:else if notes}
+        <dl>
+          {#each Object.entries(notes) as [k, v]}<dt>{k.replace("_", " ")}</dt><dd>{v}</dd>{/each}
+        </dl>
+      {/if}
+    </section>
+  {/if}
+</div>
 
 <style>
   /* Tokens from DESIGN.md (Airtable analysis): white canvas, hairline cards, near-black ink + primary,
-     signature coral reserved for AI elements. No web fonts: the app must work offline. */
+     signature coral reserved for AI elements. No web fonts: the app must work offline.
+     The window itself is transparent; the .panel is the visible glass overlay. */
   :global(:root) {
     --canvas: #ffffff;
     --surface: #ffffff;
@@ -136,26 +139,34 @@
     --ai: #aa2d00; /* signature coral */
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--body);
-    background: var(--canvas);
+    background: transparent;
   }
-  :global(body) { margin: 0; }
-  header { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 24px; border-bottom: 1px solid var(--hairline); color: var(--ink); }
-  header strong { font-weight: 500; font-size: 18px; }
-  .spacer { flex: 1; }
-  .badge { font-weight: 500; font-size: 14px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 4px 10px; border-radius: 6px; }
-  button { font-family: inherit; font-weight: 500; font-size: 16px; line-height: 1.4; padding: 10px 20px; border-radius: 12px; border: 0; cursor: pointer; }
+  :global(body) { margin: 0; background: transparent; overflow: hidden; }
+  /* 8px inset so the CSS shadow isn't clipped by the window edge. */
+  .panel { box-sizing: border-box; height: calc(100vh - 16px); margin: 8px; display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px;
+    background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--hairline); border-radius: 16px; box-shadow: 0 8px 24px rgba(24, 29, 38, 0.12); overflow: hidden; }
+  header { display: flex; align-items: center; gap: 8px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
+  header strong { font-weight: 500; font-size: 16px; }
+  .spacer { flex: 1; align-self: stretch; }
+  .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 8px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; }
   button.primary { background: var(--primary); color: #fff; }
   button.primary:active { background: var(--primary-active); }
   button:disabled { opacity: 0.4; cursor: default; }
-  main { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 24px; padding: 24px; height: calc(100vh - 65px - 48px); background: var(--surface-soft); }
-  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 24px; overflow-y: auto; }
-  h2 { font-weight: 400; font-size: 20px; line-height: 1.5; color: var(--ink); margin: 0 0 16px; display: flex; align-items: center; gap: 8px; }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; overflow-y: auto; min-height: 0; }
+  .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai); }
+  .transcript { flex: 1 1 0; min-height: 96px; }
+  .notes { flex: 0 1 auto; max-height: 40%; }
+  h2 { font-weight: 400; font-size: 16px; line-height: 1.5; color: var(--ink); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   .ai { font-weight: 500; font-size: 12px; line-height: 1.4; color: #fff; background: var(--ai); padding: 2px 8px; border-radius: 6px; }
-  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; white-space: pre-line; }
+  p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }
   .muted { color: var(--muted); }
-  article { border: 1px solid var(--hairline); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  article { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai); }
-  small { font-weight: 500; font-size: 14px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
-  dt { font-weight: 500; font-size: 14px; line-height: 1.35; color: var(--muted); text-transform: capitalize; margin-top: 12px; }
+  small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
+  dl { margin: 0; }
+  dt { font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); text-transform: capitalize; margin-top: 10px; }
+  dt:first-child { margin-top: 0; }
   dd { margin: 4px 0 0; font-size: 14px; color: var(--ink); }
 </style>

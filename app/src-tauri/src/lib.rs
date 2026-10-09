@@ -1,6 +1,7 @@
 use std::process::{Child, Command};
 use std::sync::Mutex;
-use tauri::{Manager, RunEvent};
+use tauri::{Manager, PhysicalPosition, RunEvent};
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// The Python engine (../../engine) serving the local models on 127.0.0.1:8765.
 struct Engine(Mutex<Option<Child>>);
@@ -20,7 +21,25 @@ fn spawn_engine() -> Option<Child> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Engine(Mutex::new(spawn_engine())))
+        .setup(|app| {
+            // Overlay: dock top-right of the work area (24px margins), then show.
+            let win = app.get_webview_window("main").unwrap();
+            if let Some(m) = win.current_monitor()? {
+                let (area, gap) = (m.work_area(), (24.0 * m.scale_factor()) as i32);
+                let w = win.outer_size()?.width as i32;
+                win.set_position(PhysicalPosition::new(area.position.x + area.size.width as i32 - w - gap, area.position.y + gap))?;
+            }
+            win.show()?;
+            // Cmd+\ toggles the overlay.
+            app.global_shortcut().on_shortcut(Shortcut::new(Some(Modifiers::SUPER), Code::Backslash), move |_, _, e| {
+                if e.state == ShortcutState::Pressed {
+                    let _ = if win.is_visible().unwrap_or(false) { win.hide() } else { win.show().and_then(|_| win.set_focus()) };
+                }
+            })?;
+            Ok(())
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
