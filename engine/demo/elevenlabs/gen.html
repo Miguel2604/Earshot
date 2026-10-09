@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>Phase 11 gen</title>
+<button id="go">Generate</button><pre id="log"></pre>
+<script src="https://js.puter.com/v2/"></script>
+<script>
+const A = "21m00Tcm4TlvDq8ikWAM"; // Rachel (agent)
+const C = "pNInz6obpgDQGcFmaJgB"; // Adam (customer)
+const LINES = [
+ [A, "Good afternoon, thank you for calling Fiberlink, this is Ana. How may I help you po?"],
+ [C, "Hi, yes. Na-charge ako ng dalawang beses ngayong buwan sa bill ko. Same amount, twice."],
+ [A, "I'm sorry to hear that po. Pwede ko po bang makuha ang account number ninyo?"],
+ [C, "Ilang beses na akong tumawag! Bakit hanggang ngayon hindi pa rin naaayos? Nakakainis na talaga!"],
+ [A, "Para ma-verify po, pakibigay po ng CVV ng card niyo."],
+ [C, "Uh, one two three... ay, wait, bakit niyo kailangan yan?"],
+ [C, "Eto na yung card ko, 4 1 1 1, 2 2 2 2, 3 3 3 3, 4 8 2 1. Ibalik niyo na yung pera ko!"],
+ [C, "Ayoko na ng sorry! Gusto ko makausap ang supervisor ninyo, ngayon din!"],
+ [A, "Naiintindihan ko po kayo, and I apologize for the trouble. I can see the double charge. I will file a refund today, and it will be credited in five to seven banking days."],
+ [C, "Sige, okay. Basta i-text niyo ako pag na-process na."],
+ [A, "Opo, you will get an SMS confirmation. Salamat po sa pasensya, and thank you for calling Fiberlink."],
+];
+const log = m => (document.getElementById("log").textContent += m + "\n");
+async function run() {
+  for (let i = 0; i < LINES.length; i++) {
+    const [voice, text] = LINES[i], nn = String(i + 1).padStart(2, "0");
+    try {
+      const audio = await puter.ai.txt2speech(text, {provider: "elevenlabs", voice, model: "eleven_multilingual_v2", output_format: "mp3_44100_128"});
+      const blob = await (await fetch(audio.src)).blob();
+      await fetch("/save/" + nn, {method: "POST", body: blob});
+      log(nn + " ok " + blob.size);
+    } catch (e) { log(nn + " ERR " + (e && (e.message || JSON.stringify(e)))); return; }
+  }
+  log("DONE");
+}
+document.getElementById("go").onclick = run;
+</script>
