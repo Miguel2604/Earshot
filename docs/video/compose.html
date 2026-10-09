@@ -1,0 +1,155 @@
+<!doctype html>
+<!-- The demo video, one frame per seek(t). Drawn by render.cjs; panel frames + beat times come from capture.cjs (panel.json). -->
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #07080d; color: #fff;
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+  #bg { position: absolute; inset: 0; overflow: hidden; background:
+      radial-gradient(900px 700px at 78% 22%, rgba(255,148,112,.30), transparent 70%),
+      radial-gradient(1100px 800px at 10% 95%, rgba(80,96,255,.30), transparent 70%),
+      radial-gradient(700px 600px at 45% 40%, rgba(150,90,220,.16), transparent 70%),
+      linear-gradient(160deg, #0d0f1a, #07080d 60%, #0b0a12); }
+  #bg i { position: absolute; border-radius: 50%; filter: blur(60px); }
+  .layer { position: absolute; inset: 0; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 26px; }
+  .kicker { font-size: 24px; letter-spacing: .14em; text-transform: uppercase; color: #ff9470; font-weight: 500; }
+  h1 { font-size: 150px; font-weight: 500; letter-spacing: -.035em; line-height: 1; }
+  h2 { font-size: 92px; font-weight: 500; letter-spacing: -.03em; line-height: 1.02; }
+  .lead { font-size: 40px; color: rgba(255,255,255,.78); font-weight: 400; letter-spacing: -.01em; max-width: 1300px; line-height: 1.3; }
+  .pill { display: inline-block; padding: 12px 26px; border-radius: 999px; border: 1px solid rgba(255,255,255,.28);
+    background: rgba(255,255,255,.06); font-size: 30px; color: rgba(255,255,255,.9); }
+  .pill.ai { border-color: rgba(255,148,112,.6); color: #ffb398; background: rgba(255,148,112,.10); }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+  #panelWrap { position: absolute; left: 1240px; top: 60px; width: 560px; height: 960px; border-radius: 21px; overflow: hidden;
+    box-shadow: 0 40px 120px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.10); }
+  #panel { width: 560px; height: 960px; display: block; }
+  .ring { position: absolute; border: 3px solid #ff9470; border-radius: 14px; box-shadow: 0 0 0 6px rgba(255,148,112,.18), 0 0 40px rgba(255,148,112,.35); }
+  #cursor { position: absolute; width: 34px; height: 34px; }
+  #ripple { position: absolute; border-radius: 50%; border: 3px solid #fff; }
+
+  #cap { position: absolute; left: 140px; top: 0; width: 1000px; height: 1080px; }
+  .cap { position: absolute; left: 0; top: 250px; width: 1000px; }
+  .cap .kicker { margin-bottom: 22px; }
+  .cap .t { font-size: 72px; font-weight: 500; letter-spacing: -.03em; line-height: 1.05; }
+  .cap .s { font-size: 34px; color: rgba(255,255,255,.74); line-height: 1.35; margin-top: 24px; max-width: 960px; }
+  .zoom { position: relative; margin-top: 56px; border-radius: 22px; overflow: hidden; background: #000;
+    box-shadow: 0 30px 90px rgba(0,0,0,.5), 0 0 0 1px rgba(255,148,112,.55); }
+  .zoom img { position: absolute; transform-origin: 0 0; }
+</style>
+<div id="bg"></div>
+<div id="scene" class="layer">
+  <div id="cap"></div>
+  <div id="panelWrap"><img id="panel"></div>
+  <div id="rings" class="layer"></div>
+  <div id="ripple"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l15 11-6.5 1.2L16 21l-3 1.3-3.4-6.6L4 20z" fill="#fff" stroke="#000" stroke-width="1.3" stroke-linejoin="round"/></svg>
+</div>
+<div id="title" class="layer center">
+  <div class="kicker">AppBuildersPH Hackathon 2026 · Local AI</div>
+  <h1>Earshot</h1>
+  <div class="lead">An on-device AI copilot for Filipino call center agents.</div>
+</div>
+<div id="models" class="layer center">
+  <h2>100% on-device</h2>
+  <div class="row"><span class="pill">Whisper</span><span class="pill">Gemma</span><span class="pill">Laya</span><span class="pill">EmbeddingGemma</span></div>
+  <div class="lead">Four local models on a MacBook. Live, in Taglish.</div>
+</div>
+<div id="outro" class="layer center">
+  <h1>Earshot</h1>
+  <div class="lead">Live Taglish transcript · masked card numbers · escalation · replies · notes</div>
+  <div class="row"><span class="pill ai">0 bytes to the cloud</span></div>
+  <div class="lead" style="font-size:32px;color:rgba(255,255,255,.6)">Team Neosolve · #AppBuildersPH</div>
+</div>
+<script>
+const P = { x: 1240, y: 60, s: 960 / 720 }; // must match capture.cjs
+const ease = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.pow(1 - x, 3));
+const ramp = (t, a, d) => ease((t - a) / d);
+const win = (t, a, b, fin = 0.5, fout = 0.4) => Math.min(ramp(t, a, fin), 1 - ramp(t, b - fout, fout)); // visible on [a, b]
+let D, T; // panel.json, timeline
+
+window.setup = (data) => {
+  D = data;
+  const b = D.beats, c = (x) => T.click + x; // output time of a beat (seconds after the click)
+  T = { title: [0, 3.6], models: [3.6, 7.6], scene: 7.6, click: 9.4 };
+  T.end = c(b.qa + 5.5); T.outro = [T.end, T.end + 5];
+  T.duration = T.outro[1];
+  // Left-hand captions, keyed to the real beat times measured during capture. [start, end, kicker, title, sub, zoom rect key|null, ring rect key|null]
+  T.caps = [
+    [T.scene + 0.3, c(b.subtitle - 0.3), "Demo call", "A customer calls about a double charge.", "Earshot floats over the agent's screen and listens."],
+    [c(b.subtitle), c(b.billing - 0.2), "Whisper + Gemma", "Live Taglish transcript.", "English subtitles underneath, as the customer talks."],
+    [c(b.billing), c(b.billing + 9), "EmbeddingGemma + Gemma", "The right procedure, and what to say.", "“Billing dispute” on top; the reply is drafted in Taglish.", null, "suggest"],
+    [c(b.billing + 9), c(b.cvv - 0.3), "All on the Mac's GPU", "Four models, live.", "Each pill lights up while its model runs, with its time.", "pills", "pills"],
+    [c(b.cvv), c(b.card - 0.3), "Compliance", "Agent asks for the CVV?", "Instant PCI alert. The digits never show: •••", "cvv", "alert"],
+    [c(b.card), c(b.escalate - 0.3), "PII masking", "Card numbers, masked.", "Masked in the engine, before anything reaches the screen.", "card", "card"],
+    [c(b.escalate), c(b.cleared - 0.3), "Laya", "Mood climbs. Escalation.", "The de-escalation script pins itself, ready for the agent.", "mood", "mood"],
+    [c(b.cleared), c(b.notes - 0.3), "Laya", "Calm again.", "The banner clears when the customer settles."],
+    [c(b.notes), c(b.qa + 1.2), "After the call", "Notes and QA, written for you.", "Category, priority, disposition, summary. Masked. One click to the CRM.", null, "notes"],
+    [c(b.qa + 1.2), T.end, "Egress meter", "0 bytes to the cloud.", "Measured live: the Mac sends traffic, Earshot sends nothing.", "footer", "footer"],
+  ];
+  document.getElementById("cap").innerHTML = T.caps.map(([, , k, t, s, z]) =>
+    `<div class="cap"><div class="kicker">${k}</div><div class="t">${t}</div><div class="s">${s}</div>${z ? '<div class="zoom"><img></div>' : ""}</div>`).join("");
+  document.getElementById("rings").innerHTML = T.caps.map(() => '<div class="ring"></div>').join("");
+  return T;
+};
+
+function rect(key, t) { // element box at panel time t (last sample that has it)
+  const p = t - T.click; let found = null;
+  for (const s of D.track) { if (s.t > p && found) break; if (s.r[key]) found = s.r[key]; }
+  return found;
+}
+function frameAt(t) { // latest captured panel frame at panel-time t
+  const p = D.click + (t - T.click); let lo = 0, hi = D.frames.length - 1;
+  if (p <= D.frames[0].t) return D.frames[0].f;
+  while (lo < hi) { const m = (lo + hi + 1) >> 1; if (D.frames[m].t <= p) lo = m; else hi = m - 1; }
+  return D.frames[lo].f;
+}
+
+window.seek = async (t) => {
+  const $ = (id) => document.getElementById(id);
+  $("title").style.opacity = win(t, -1, T.title[1], 0.01, 0.5);
+  $("title").style.transform = `scale(${1 + 0.03 * (t / T.title[1])})`;
+  $("models").style.opacity = win(t, T.models[0] + 0.15, T.models[1], 0.5, 0.5);
+  [...$("models").querySelectorAll(".pill")].forEach((el, i) => {
+    const a = ramp(t, T.models[0] + 0.5 + i * 0.18, 0.4); el.style.opacity = a; el.style.transform = `translateY(${(1 - a) * 14}px)`;
+  });
+  $("outro").style.opacity = win(t, T.outro[0] + 0.2, T.outro[1] + 1, 0.7);
+  $("scene").style.opacity = win(t, T.scene, T.end, 0.6, 0.5);
+
+  // panel: slides in, then shows the recording
+  const a = ramp(t, T.scene, 0.9);
+  $("panelWrap").style.transform = `translateX(${(1 - a) * 80}px)`;
+  const img = $("panel"), src = frameAt(t);
+  if (!img.src.endsWith(src)) { img.src = src; await img.decode(); }
+
+  // cursor glides to "Demo call", clicks
+  const btn = D.demoBtn, bx = P.x + (btn.x + btn.w / 2) * P.s, by = P.y + (btn.y + btn.h / 2) * P.s;
+  const m = ramp(t, T.click - 1.1, 0.9), cur = $("cursor");
+  cur.style.left = `${bx + (1 - m) * -260 - 4}px`; cur.style.top = `${by + (1 - m) * 320 - 2}px`;
+  cur.style.opacity = win(t, T.scene + 0.6, T.click + 0.7, 0.3, 0.4);
+  cur.style.transform = `scale(${t > T.click - 0.05 && t < T.click + 0.12 ? 0.85 : 1})`;
+  const r = (t - T.click) / 0.6, rp = $("ripple");
+  rp.style.opacity = r > 0 && r < 1 ? 1 - r : 0; const rr = 8 + r * 46;
+  Object.assign(rp.style, { left: `${bx - rr}px`, top: `${by - rr}px`, width: `${rr * 2}px`, height: `${rr * 2}px` });
+
+  // captions, rings, zoom callouts
+  const caps = $("cap").children, rings = $("rings").children;
+  await Promise.all(T.caps.map(async ([s, e, , , , z, ring], i) => {
+    const o = win(t, s, e, 0.5, 0.35), el = caps[i];
+    el.style.opacity = o; el.style.transform = `translateY(${(1 - ramp(t, s, 0.6)) * 18}px)`;
+    const rg = ring && rect(ring, t), ringEl = rings[i];
+    ringEl.style.opacity = rg ? win(t, s + 0.2, e, 0.4, 0.3) : 0;
+    if (rg) Object.assign(ringEl.style, { left: `${P.x + rg.x * P.s - 6}px`, top: `${P.y + rg.y * P.s - 6}px`, width: `${rg.w * P.s + 12}px`, height: `${rg.h * P.s + 12}px` });
+    const zr = z && rect(z, t);
+    if (zr && o > 0) { // the same panel frame, cropped to the element and enlarged
+      const box = el.querySelector(".zoom"), zi = box.querySelector("img");
+      const pad = 10, k = Math.min(3, 920 / (zr.w + pad * 2), 330 / (zr.h + pad * 2)); // canvas px per panel CSS px
+      Object.assign(box.style, { width: `${(zr.w + pad * 2) * k}px`, height: `${(zr.h + pad * 2) * k}px` });
+      Object.assign(zi.style, { width: `${420 * k}px`, height: `${720 * k}px`, left: `${-(zr.x - pad) * k}px`, top: `${-(zr.y - pad) * k}px` });
+      const zo = ramp(t, s + 0.35, 0.5); box.style.transform = `scale(${0.96 + 0.04 * zo})`; box.style.opacity = zo;
+      if (!zi.src.endsWith(src)) { zi.src = src; await zi.decode(); }
+    }
+  }));
+};
+</script>

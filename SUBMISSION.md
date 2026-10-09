@@ -18,7 +18,7 @@ https://github.com/Miguel2604/Earshot (public)
 MacBook, Apple M5, 24 GB unified memory. All inference runs on the Mac's GPU (MLX and PyTorch MPS).
 
 ## Demo video
-TODO: link (60–90 s, shot list at the bottom of this file)
+`docs/demo-video.mp4` in the repo (89.8 s, 1080p). TODO (Miguel): upload it (YouTube/LinkedIn) and paste the link here.
 
 ## Screenshots
 In the repo under `docs/`:

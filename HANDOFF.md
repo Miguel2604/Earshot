@@ -40,6 +40,8 @@ You are picking up a hackathon project at the finish line. Read this, then `PLAN
 - Cmd+\ toggles show/hide (global shortcut registered in Rust). Registers without error; **not yet tested by an actual keypress** (synthetic keys were blocked here).
 - **Not verified:** mic capture inside the Tauri webview (the permission prompt can't be accepted unattended). If `getUserMedia` fails, the transcript card says "Microphone unavailable… Use Demo call." Fallback if it fails for real: capture in the engine with `sounddevice`, same WS messages (PLAN Phase 1.1).
 
+- **Demo video:** `docs/demo-video.mp4` (89.8 s, 1080p, 7 MB, call audio included). Made per brag's `/brag-slim` skill with headless Chrome (puppeteer-core from the npx cache + `/Applications/Google Chrome.app`) + ffmpeg: `docs/video/capture.cjs` records a real Demo call at localhost:1420 over the video's backdrop (so the glass frosts the same image) and logs beat times + element boxes; `docs/video/compose.html` + `render.cjs` draw title cards, captions, rings and zoom callouts frame by frame. To re-render (engine + Vite up): re-render: `NODE_PATH=<dir with puppeteer-core> node docs/video/capture.cjs <workdir>` (after `node docs/video/render.cjs <workdir> --backdrop`), then `node docs/video/render.cjs <workdir>` (`--stills 10,20` writes check frames). The footer reads "Online" (real `navigator.onLine`); the egress meter is the proof.
+
 ## Laya: what we learned (important)
 Tested zero-shot on 6 Taglish lines (details in PLAN.md):
 - `choice` (intent): 3/5 correct. Usable as a hint.
@@ -140,7 +142,7 @@ Code freeze **10:00 AM today (Sat Oct 10)**.
 **Then:** record the demo video (shot list at the bottom of `SUBMISSION.md`), post (drafts in `SUBMISSION.md`), `gh repo create earshot --public --source . --remote origin --push` (main only), submit on Cerebral Valley before 10:00 (fill the `TODO`s). Optional real recording: `ffmpeg -i ~/Desktop/call.m4a -ac 1 -ar 16000 -sample_fmt s16 engine/demo/call.wav`, then `cd engine && uv run --offline python check_demo.py` and read `BEATS`.
 
 ## Next actions (agents)
-**Next: the demo video with brag** (60–90 s, shot list in `SUBMISSION.md`). Phases 10 and the demo rehearsal are done (PLAN Status). Before any change: `check_demo.py` must still hit every beat; after: run it again. Native-window frames `docs/demo-beat-*.png` are still missing (screen was locked); capture them with `screencapture -x -R <window rect>` when the screen is unlocked.
+**Demo video done** (`docs/demo-video.mp4`; Miguel uploads it). Phases 10 and the demo rehearsal are done (PLAN Status). Before any change: `check_demo.py` must still hit every beat; after: run it again. Native-window frames `docs/demo-beat-*.png` are still missing (screen was locked); capture them with `screencapture -x -R <window rect>` when the screen is unlocked.
 
 **Update 00:30:** Miguel approved an overnight run of PLAN.md **Phases 7–11** (live model strip + egress meter, compliance alerts + live QA, mood timeline, reply in the customer's language, ElevenLabs demo voices). Do them after the QA Stretch item is committed, with the guardrails at the top of that PLAN section (hard stop 08:00, every existing demo beat must still pass). That overrides "only if Miguel asks" below for those phases.
 
