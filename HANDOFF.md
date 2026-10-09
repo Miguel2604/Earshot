@@ -1,11 +1,11 @@
-# Handoff: Earshot (Phases 0–8 (slim), 10, 11 and the demo rehearsal done; next: demo video; Miguel records, posts, pushes and submits)
+# Handoff: Earshot (build stopped; see "Status at stop" at the bottom. Miguel watches one native run, uploads, posts, pushes and submits)
 
-You are picking up a hackathon project at the finish line. Read this, then `PLAN.md`. Phases 0–8 (slim), 10, 11, the QA Stretch item, the Cluely UI pass and the demo rehearsal are done (Phase 9 skipped); next is the demo video, plus Miguel's list (see "For Miguel when he wakes up"). Don't re-litigate the decisions below; the user already made them.
+You are picking up a hackathon project at the finish line. Read this, then `PLAN.md`. The build is stopped: start with "Status at stop" at the bottom (what's done, verified, risky, and Miguel's demo steps + to-do list). Don't re-litigate the decisions below; the user already made them.
 
 ## Situation
 - **Event:** AppBuildersPH Hackathon 2026, theme **Local AI** (https://appbuildersph.com/hackathon/). **Code freeze 10:00 AM Sat Oct 10, 2026, no extensions.** Judges review the public GitHub repo as of the deadline. Demo Day is in person, on the user's MacBook.
 - **Product:** Earshot, an on-device copilot for Filipino call center agents: live transcript → mood + intent → KB procedure → drafted reply → masked after-call notes.
-- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay), Phase 1 (demo-call mode, silence chunking), Phase 2 (live PII masking), Phase 3 (subtitles, Laya signals, escalation, gated reply), Phase 4 (structured, editable notes + Copy to CRM), Phase 5 (Online/Offline indicator, offline flags, locality check) Phase 6 code side (66 s demo WAV, `SUBMISSION.md`, judge-ready README, `docs/phase-6.png`) and the post-Phase-6 fix-up (sticky call intent), the QA checklist, the Cluely-style UI and Phase 7 (live model strip + real egress meter) committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
+- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay), Phase 1 (demo-call mode, silence chunking), Phase 2 (live PII masking), Phase 3 (subtitles, Laya signals, escalation, gated reply), Phase 4 (structured, editable notes + Copy to CRM), Phase 5 (Online/Offline indicator, offline flags, locality check) Phase 6 code side, the fix-up, the QA checklist, the Cluely-style UI, Phase 7, Phase 8 (slim), Phase 10, Phase 11, the demo rehearsal and the demo video committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
 
 ## Decisions already made (by the user)
 - Demo on **Mac only** (Apple M5, 24 GB). No Windows build.
@@ -27,7 +27,7 @@ You are picking up a hackathon project at the finish line. Read this, then `PLAN
 - **Demo-call mode (Phase 1):** `WS /ws/demo` streams `engine/demo/call.wav` through the same `handle_chunk` pipeline at real-time pace, then `{"type":"end"}`. The header's "Demo call" button opens it, plays `GET /demo/call.wav`, and auto-ends the call when `end` arrives (notes appear). Each transcript lands ~0.4–0.5 s after its audio. Screenshot: `docs/phase-1.png`.
 - **Phase 11:** `engine/demo/call.wav` is now the **ElevenLabs** call (64.3 s, built by `engine/demo/elevenlabs/build.sh` from Miguel's clips, which are gitignored; includes the CVV ask). Beats: subtitle 6.7, billing 11.2, CVV alert + `•••` 30.5, `•••• 4821` 40.5, escalation 46.2 (supervisor-demand rule), cleared 61.2, end 65.4 s. The old placeholder below is now `engine/demo/call-tts.wav`.
 - **Phase 8 (slim):** CVV/OTP/PIN/password asks → red dismissable banner + failed QA chip; 3–8 digits after those keywords masked (`SECRET`, `mask_with`, `alert` in `server.py`). Live QA skipped. Screenshot `docs/phase-8.png`.
-- `engine/demo/call-tts.wav` (formerly `call.wav`) is the old **placeholder** (66 s, macOS `say` voices): Taglish double charge, angry customer, card number `4111 2222 3333 4821`, supervisor demand, agent files a refund. It's the verified 59 s Phase 1 file with one line spliced in at 35.6 s (see Phase 6). `make_demo.sh` contains the same script, but today's `say` voices produce different audio, so a rerun is not byte-identical and changes the beat timings (re-verify if you regenerate). Replace with the real recording (same filename, 16 kHz mono 16-bit WAV).
+- `engine/demo/call-tts.wav` (formerly `call.wav`) is the old **placeholder** (66 s, macOS `say` voices): Taglish double charge, angry customer, card number `4111 2222 3333 4821`, supervisor demand, agent files a refund. It's the verified 59 s Phase 1 file with one line spliced in at 35.6 s (see Phase 6). `make_demo.sh` contains the same script, but today's `say` voices produce different audio, so a rerun is not byte-identical and changes the beat timings (re-verify if you regenerate).
 - **PII masking (Phase 2):** every transcript goes through `mask()` in `engine/server.py` before it's sent, so the UI, KB search and notes only see masked text. Any run of 7+ digits (groups may be split by spaces/dots/dashes) → `•••• 4821` (cards, PH mobiles, account numbers); emails → `••••@domain`; short numbers (amounts, days, times) stay. `hold_tail()` holds digits at the end of a chunk and prepends them to the next one, so a number cut across chunks is masked as one. On the demo WAV the card shows as `•••• 4821 Ibalik ni Iona young perico` (35.4 s, ~0.4 s after its audio); the line before ends `…card ko. For`. Panel footer: live egress meter (Phase 7) / "PII masked on-device". Transcript card auto-scrolls. Screenshot: `docs/phase-2.png`.
 - **Notes (Phase 4):** `POST /notes {"transcript": "<masked lines>"}` → `{category, priority, disposition: {value, confidence, options}, summary, follow_up}` in ~2.0 s warm. Gemma writes only `summary`/`follow_up` (masked; told not to invent facts); Laya picks the three fixed-list fields from Gemma's English summary (`NOTE_QUESTIONS` in `server.py`). On the demo: billing 1.00 / medium 0.53 / follow-up 0.82, summary only states transcript facts, no digits. UI: three dropdowns with confidence, editable summary + follow-up textareas, "Copy to CRM" (plain text incl. edits; verified via `pbpaste`). Screenshot: `docs/phase-4.png`.
 - **Prove local (Phase 5):** footer "● Online/Offline · 0 bytes sent to cloud" + "PII masked on-device" (`<svelte:window bind:online>`; green dot when offline; fits 420px, scrollWidth 378 = clientWidth). `models.py` sets `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `HF_HUB_DISABLE_TELEMETRY` before any HF import; `lib.rs` starts the engine with `uv run --offline`. Locality proven without touching Wi-Fi: `lsof -nP -i -a -p` sampled every 0.5 s on the uv + Python engine from launch through model load, a full `/ws/demo` and `/notes` → only `127.0.0.1:8765` sockets. The browser pane's network log shows only `localhost:1420` / `127.0.0.1:8765`. The real Wi-Fi-off run is a by-hand checklist in PLAN Phase 5 (the user does it). Screenshot (offline emulated in-page): `docs/phase-5.png`.
@@ -67,7 +67,7 @@ models.decide(text, {
 | `PLAN.md` | Phases, demo script, risks, submission checklist. **Source of truth for what to do next.** |
 | `engine/models.py` | The 4 model calls (`transcribe`, `embed_docs`/`search`, `decide`, `generate`) + `warm()`. Paths from `EARSHOT_MODELS` (default `~/models`). |
 | `engine/server.py` | FastAPI app: `running`/`finish` (busy + timings messages), `/egress` + `parse_nettop`/`parse_netstat`, `handle_chunk` (transcript) + `enrich` (translation/signals/KB/reply), Laya `QUESTIONS`, `MOOD_HIGH`, `/ws/call` (mic), `/ws/demo` (demo WAV), `/demo/*` static, `/notes` + `NOTE_QUESTIONS`, `/qa` + `QA_STEPS` + `grounded`, global model lock. |
-| `engine/demo/` | `call.wav` (66 s placeholder demo call) + `make_demo.sh` (its script; not byte-reproducible, see above). |
+| `engine/demo/` | `call.wav` (64.3 s ElevenLabs demo call, `elevenlabs/build.sh`), `call-tts.wav` (old `say` placeholder) + `make_demo.sh` (its script; not byte-reproducible, see above). |
 | `SUBMISSION.md` | Cerebral Valley form answers (with `TODO`s for team, repo URL, video link), X/LinkedIn post drafts, demo video shot list. |
 | `docs/phase-*.png` | Screenshots per phase; `phase-6.png` is the README hero (escalation moment). |
 | `engine/check_demo.py` | Scripted `/ws/demo` + `/notes` + `/qa` client; prints message timings, per-chunk model `timings` + pill order, polls `/egress` (asserts Earshot stays 0) and a `BEATS` summary (needs the engine running). |
@@ -130,23 +130,41 @@ The frontend also runs in a normal browser at `http://localhost:1420` while `tau
 - QA checklist: `/qa` must run *after* `/notes` (both take the one lock; fired together, `/qa` can win and delay the notes). The step list is fixed in `QA_STEPS`; edit it there (label, what Gemma looks for). Re-check on the real recording: if Whisper garbles the agent's lines badly, `grounded()` (≥60% of quote words in the transcript) may untick a step Gemma found.
 - Scripted demo check: `cd engine && uv run --offline python check_demo.py` while the engine is up. Prints each WS message with its time, asserts no raw card digits, POSTs `/notes`, and ends with a `BEATS` line (first time each beat fired).
 
-## For Miguel when he wakes up
-Code freeze **10:00 AM today (Sat Oct 10)**.
+## Status at stop
+Build stopped Sat Oct 10, ~02:00. Code freeze **10:00 AM today**, no extensions.
 
-**On stage (the demo):**
-1. Before: quit stray instances (`pgrep -fl "uvicorn|earshot|vite|tauri"`), then `cd app && pnpm tauri dev`. The panel docks top-right; wait until the badge says "On-device · offline" (~25 s model load). Volume up (the call audio plays).
-2. Click **Demo call**. What appears (seconds from click): 6 s first line + English subtitle · 11 s "Billing dispute" procedure + Billing chip · 12 s Taglish "Say this" · 30 s red CVV banner ("Never ask for the CVV — PCI rule"), CVV shows as `•••` · 40 s card shows as `•••• 4821` · 46 s escalation banner + de-escalation script pinned (after "Gusto ko makausap ang supervisor") · 61 s escalation clears · 65 s call ends → notes in 2 s (Billing / Medium / Follow-up, summary, Copy to CRM), QA chips 3 s later (4/6: CVV ask and supervisor callback missed, correctly). Footer stays "Earshot: 0 B, 0 connections".
-3. **Wi-Fi-off moment:** turn Wi-Fi off from the menu bar, footer dot says **Offline**; click **Demo call** again: same beats (each click resets the panel). "Zero bytes left this laptop."
-4. Still unchecked by an agent (screen was locked): one native run by eye (does the glass blink? text readable over your wallpaper?), Cmd+\, Copy to CRM + `pbpaste`, mic prompt on Start call.
+**Done (all committed on `main`, not pushed; no remote yet):**
+- 0.5 floating overlay · 1 demo-call mode + silence chunking · 2 live PII masking · 3 subtitles, Laya intent/mood, escalation, gated reply · 4 editable notes + Copy to CRM · 5 Online/Offline + offline flags + lsof locality check · 6 demo WAV, README, `SUBMISSION.md` drafts · 7 live model strip + real egress meter · 8 (slim) CVV/OTP/PIN alert + masking.
+- 10 reply in the customer's language · 11 ElevenLabs demo voices swapped into `engine/demo/call.wav`.
+- Fix-up (sticky call intent, small talk doesn't vote) · Stretch QA checklist (`/qa`, grounded quotes) · UI Cluely glass passes (dark glass + icons, translucent overlay, lighter native glass).
+- Demo rehearsal (notes fit after the call, clean reset between runs, stricter supervisor-callback QA) · demo video `docs/demo-video.mp4` (89.8 s, 1080p, call audio).
 
-**Then:** record the demo video (shot list at the bottom of `SUBMISSION.md`), post (drafts in `SUBMISSION.md`), `gh repo create earshot --public --source . --remote origin --push` (main only), submit on Cerebral Valley before 10:00 (fill the `TODO`s). Optional real recording: `ffmpeg -i ~/Desktop/call.m4a -ac 1 -ar 16000 -sample_fmt s16 engine/demo/call.wav`, then `cd engine && uv run --offline python check_demo.py` and read `BEATS`.
+**Not done:** Phase 9 (mood timeline), skipped on Miguel's "don't polish" call · Phase 8 live QA (skipped; only the CVV alert + masking shipped) · remaining Stretch: screenshot KB, speaker labels.
 
-## Next actions (agents)
-**Demo video done** (`docs/demo-video.mp4`; Miguel uploads it). Phases 10 and the demo rehearsal are done (PLAN Status). Before any change: `check_demo.py` must still hit every beat; after: run it again. Native-window frames `docs/demo-beat-*.png` are still missing (screen was locked); capture them with `screencapture -x -R <window rect>` when the screen is unlocked.
+**Verified** (latest rehearsal + video capture, seconds from the Demo call click; `check_demo.py` agrees): subtitle ~6 s · billing procedure ~11 s · Taglish "Say this" ~12 s · CVV alert + `•••` ~30 s · `•••• 4821` ~40 s · escalation ~46 s (none before) · cleared ~61 s · end ~65 s · notes +2 s · QA chips +2.5 s · Earshot egress 0 B / 0 connections throughout. A second click resets cleanly; nothing overflows 420 px. All assert checks (`test_*.py`) and `pnpm check` pass.
 
-**Update 00:30:** Miguel approved an overnight run of PLAN.md **Phases 7–11** (live model strip + egress meter, compliance alerts + live QA, mood timeline, reply in the customer's language, ElevenLabs demo voices). Do them after the QA Stretch item is committed, with the guardrails at the top of that PLAN section (hard stop 08:00, every existing demo beat must still pass). That overrides "only if Miguel asks" below for those phases.
+**Not verified / risky:**
+- Nobody has watched it in the **native window** since the last changes (screen was locked; rehearsal and video ran in the browser at localhost:1420). Possible glass blink/flicker (see Gotchas) and readability over Miguel's wallpaper are unchecked.
+- Untested by hand: Cmd+\ toggle, mic permission prompt on Start call, Copy to CRM in the native window (`pbpaste`), the Wi-Fi-off rehearsal.
+- Plus the open items in Gotchas: Whisper on real (non-TTS) Taglish, digits spoken as words aren't masked, priority confidence ~0.5, `tauri dev` occasionally killed from outside (relaunch steps there), native-window frames `docs/demo-beat-*.png` never captured.
 
-Only the remaining Stretch items from PLAN.md (QA checklist is done), and only if Miguel asks (the code freeze is 10:00 AM; don't destabilize the demo):
-1. **Screenshot KB:** full EmbeddingGemma 2 (vision) indexing procedure screenshots.
-2. **Speaker labels** (agent vs customer) via two audio inputs, no diarization model.
-If Miguel drops in the real recording first, the scripted `/ws/demo` + `/notes` check and re-tuning (`mask()`, `MOOD_HIGH`, `SMALL_TALK`, `NOTE_QUESTIONS`) take priority over any Stretch item. Commit; never push or create the remote without Miguel.
+**Miguel: demo steps**
+```bash
+pgrep -fl "uvicorn|earshot|vite|tauri"      # kill anything listed (stale engine/vite blocks launch)
+lsof -nP -iTCP:1420 -sTCP:LISTEN; lsof -nP -iTCP:8765 -sTCP:LISTEN   # both should be empty
+cd ~/Documents/GitHub/"AppBuilders Hackathon"/app && pnpm tauri dev
+```
+1. Panel docks top-right; wait ~25 s for the badge "On-device · offline". Volume up (call audio plays).
+2. Click **Demo call** and point at: ~6 s English subtitle under the Taglish line · ~11 s "Billing dispute" procedure + Billing chip · ~12 s "Say this" in Taglish · ~30 s red CVV banner, CVV shown as `•••` · ~40 s card as `•••• 4821` · ~46 s escalation banner + de-escalation script after "Gusto ko makausap ang supervisor" · ~61 s clears · ~65 s call ends → notes (Billing / Medium / Follow-up, summary, Copy to CRM), QA chips right after (CVV ask and supervisor callback correctly missed). Footer: "Earshot: 0 B, 0 connections" the whole time.
+3. **Wi-Fi off:** turn Wi-Fi off in the menu bar → footer dot says **Offline** → click **Demo call** again: same beats. "Zero bytes left this laptop."
+
+**Miguel: to-do before 10:00 AM**
+1. Watch one native run end to end (blink? readable? press Cmd+\ twice; Copy to CRM then `pbpaste`). Do the Wi-Fi-off run once.
+2. Upload `docs/demo-video.mp4` (YouTube/LinkedIn/X; you need a link for the form).
+3. Social post from the drafts in `SUBMISSION.md`.
+4. Create the public repo and push main only: `gh repo create earshot --public --source . --remote origin --push` (leave branch `bantai` alone).
+5. Fill the `TODO`s in `SUBMISSION.md` (team, repo URL, video link) and submit on Cerebral Valley.
+
+Optional, only with time to re-check: real recording → `ffmpeg -i ~/Desktop/call.m4a -ac 1 -ar 16000 -sample_fmt s16 engine/demo/call.wav`, then `cd engine && uv run --offline python check_demo.py` and read `BEATS` (re-tune `mask()`, `MOOD_HIGH`, `SMALL_TALK`, `NOTE_QUESTIONS` if beats move).
+
+**Agents:** no more feature work before the freeze. Before any change `check_demo.py` must hit every beat, and again after. Commit only; never push or create the remote without Miguel.
