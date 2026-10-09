@@ -281,3 +281,40 @@ async def notes(body: Transcript):
     res = {k: {"value": a[k]["choice"], "confidence": a[k]["probabilities"][a[k]["choice"]],
                "options": list(q["criteria"])} for k, q in NOTE_QUESTIONS.items()}
     return res | {"summary": summary, "follow_up": follow}
+
+
+QA_STEPS = [  # (checklist label, what Gemma looks for); from kb/telco.md's billing + angry-customer procedures
+    ("Verify identity", "Asked for or verified the customer's identity or account"),
+    ("Acknowledge & apologize", "Acknowledged the problem and apologized"),
+    ("Resolution + timeline", "Gave the resolution and when it will happen"),
+    ("Confirm via SMS", "Promised an SMS or text confirmation"),
+    ("Supervisor callback", "Offered a supervisor callback when the customer asked for a supervisor"),
+]
+
+
+def grounded(quote, transcript: str) -> bool:
+    """A step counts only if Gemma's evidence quote is really in the transcript (most of its words are)."""
+    words = re.findall(r"\w+", str(quote or "").lower())
+    have = set(re.findall(r"\w+", transcript.lower()))
+    return quote not in (None, "null", "None") and len(words) > 0 and sum(w in have for w in words) >= 0.6 * len(words)
+
+
+@app.post("/qa")
+async def qa(body: Transcript):
+    """QA checklist that ticks itself: Gemma quotes where the agent did each step (or null). Asking for a quote
+    instead of yes/no stops it ticking steps that never happened; grounded() drops made-up quotes."""
+    steps = "\n".join(f"{i + 1}. {d}" for i, (_, d) in enumerate(QA_STEPS))
+    prompt = (
+        "You check a Philippine call center call against a QA checklist. Transcript (Taglish, may have speech-to-text "
+        f"errors, no speaker labels):\n{body.transcript}\n\nQA steps:\n{steps}\n\n"
+        'Reply with ONLY a JSON object mapping each step number to a few words copied from the transcript where the '
+        'agent did that step, or null if the agent didn\'t: {"1": "...", "2": null, ...}'
+    )
+    async with lock:
+        out = await asyncio.to_thread(models.generate, prompt, 120)
+    try:
+        j = models.parse_json(out)
+    except ValueError:
+        j = {}
+    return {"steps": [{"label": label, "done": grounded(q := j.get(str(i + 1)), body.transcript), "quote": mask(str(q or ""))}
+                      for i, (label, _) in enumerate(QA_STEPS)]}

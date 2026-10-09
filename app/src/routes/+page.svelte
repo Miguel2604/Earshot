@@ -9,6 +9,7 @@
   type Signals = { intent: string | null; intent_p: number; mood: number; escalate: boolean };
   type Pick = { value: string; confidence: number; options: string[] };
   type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string };
+  type Step = { label: string; done: boolean; quote: string };
   const PICKS = ["category", "priority", "disposition"] as const;
   const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -21,6 +22,7 @@
   let suggestions = $state<Suggestion[]>([]);
   let notes = $state<Notes | null>(null);
   let writingNotes = $state(false);
+  let qa = $state<Step[] | null>(null);
   let micError = $state("");
   let copied = $state(false);
   let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
@@ -51,6 +53,7 @@
     flagged = false;
     suggestions = [];
     notes = null;
+    qa = null;
     copied = false;
     ws = new WebSocket(`ws://${ENGINE}${path}`);
     ws.onmessage = (e) => {
@@ -119,20 +122,22 @@
     live = false;
     if (!lines.length) return;
     writingNotes = true;
-    const r = await fetch(`http://${ENGINE}/notes`, {
+    const post = (path: string) => fetch(`http://${ENGINE}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ transcript: lines.map((l) => l.text).join("\n") }),
-    });
-    notes = await r.json();
+    }).then((r) => r.json());
+    notes = await post("/notes");
     writingNotes = false;
+    qa = (await post("/qa")).steps; // after notes, so the notes still land in ~2 s; the checklist ~3 s later
   }
 
   // "Copy to CRM": plain text the agent pastes into the CRM's notes field (includes their edits).
   async function copyNotes() {
     if (!notes) return;
     const n = notes;
-    const text = [...PICKS.map((k) => `${cap(k)}: ${cap(n[k].value)}`), `Summary: ${n.summary}`, `Follow-up: ${n.follow_up}`].join("\n");
+    const text = [...PICKS.map((k) => `${cap(k)}: ${cap(n[k].value)}`), `Summary: ${n.summary}`, `Follow-up: ${n.follow_up}`,
+      ...(qa ? [`QA: ${qa.filter((q) => q.done).length}/${qa.length}`, ...qa.map((q) => `[${q.done ? "x" : " "}] ${q.label}`)] : [])].join("\n");
     // execCommand runs synchronously inside the click, so it needs no clipboard permission (the browser pane denies
     // navigator.clipboard); navigator.clipboard is the fallback.
     const ta = Object.assign(document.createElement("textarea"), { value: text });
@@ -204,6 +209,13 @@
                 {#each notes[k].options as o}<option value={o}>{cap(o)}</option>{/each}
               </select>
             </label>
+          {/each}
+        </div>
+        <!-- QA checklist: Gemma ticks a step only with a quote from the call (hover it); click to correct. -->
+        <div class="qa">
+          <span class="qa-title">QA {qa ? `${qa.filter((q) => q.done).length}/${qa.length}` : "checking…"}</span>
+          {#each qa ?? [] as q}
+            <button class="step" class:done={q.done} title={q.quote || "Not found in the call"} onclick={() => { q.done = !q.done; copied = false; }}>{q.done ? "✓" : "–"} {q.label}</button>
           {/each}
         </div>
         <label>Summary <textarea rows="3" bind:value={notes.summary} oninput={() => (copied = false)}></textarea></label>
@@ -289,4 +301,8 @@
   textarea { resize: vertical; }
   select:focus, textarea:focus { outline: 2px solid #458fff; outline-offset: -1px; }
   .copy { width: 100%; }
+  .qa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .qa-title { font-weight: 500; font-size: 12px; color: var(--muted); margin-right: 2px; }
+  .step { font-size: 12px; line-height: 1.35; padding: 3px 8px; border-radius: 6px; background: var(--canvas); color: var(--muted); border: 1px solid var(--hairline); }
+  .step.done { color: var(--ai); border-color: var(--ai); }
 </style>
