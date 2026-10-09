@@ -319,11 +319,13 @@ async def call(ws: WebSocket):
 
 
 @app.websocket("/ws/demo")
-async def demo(ws: WebSocket):
+async def demo(ws: WebSocket, file: str = "call.wav"):
     """Demo-call mode: stream engine/demo/call.wav through the same pipeline at real-time pace,
-    then send {"type":"end"}. The UI plays /demo/call.wav alongside."""
+    then send {"type":"end"}. The UI plays /demo/call.wav alongside. ?file=call-en.wav: the English call (video only)."""
     await ws.accept()
-    with wave.open(str(DEMO_WAV)) as w:  # 16 kHz mono 16-bit (see demo/make_demo.sh)
+    if file not in ("call.wav", "call-en.wav"):  # whitelist, no paths
+        return await ws.close(1008)
+    with wave.open(str(DEMO_WAV.parent / file)) as w:  # 16 kHz mono 16-bit (see demo/make_demo.sh)
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
     t0, carry, st = time.monotonic(), audio[:0], new_call()
     try:
@@ -356,7 +358,21 @@ NOTE_QUESTIONS = {  # fixed lists -> dropdown-safe values; Laya answers them on 
     "disposition": {"type": "choice", "instructions": "How did the call end?", "criteria": {
         "resolved": "fixed during the call, nothing pending", "follow-up": "refund, ticket or callback still pending",
         "escalated": "handed to a supervisor", "unresolved": "no solution offered"}},
+    "route": {"type": "choice", "instructions": "Which team should handle this ticket?", "criteria": {
+        "Billing Disputes": "double charge, bill, payment, refund", "Technical Support": "slow or no internet, modem, connection",
+        "Retention": "cancel or end the subscription, upgrade plan", "Field Service": "moving house, technician visit, relocation",
+        "Supervisor Escalations": "angry customer who asked for a supervisor"}},
 }
+ESCALATIONS = "Supervisor Escalations"
+
+
+def route(transcript: str, disposition: str, pick: str, p: float, category: str) -> dict:
+    """Plain rule over Laya's queue pick: a supervisor demand or an escalated call always goes to Supervisor Escalations."""
+    if SUPERVISOR.search(transcript):
+        return {"queue": ESCALATIONS, "p": 1.0, "reason": "escalated: customer asked for a supervisor"}
+    if disposition == "escalated":
+        return {"queue": ESCALATIONS, "p": 1.0, "reason": "escalated: call handed to a supervisor"}
+    return {"queue": pick, "p": p, "reason": f"category {category}"}
 
 
 @app.post("/notes")
@@ -380,7 +396,9 @@ async def notes(body: Transcript):
         a = await asyncio.to_thread(models.decide, f"{summary}\nFollow-up: {follow}", NOTE_QUESTIONS)
     res = {k: {"value": a[k]["choice"], "confidence": a[k]["probabilities"][a[k]["choice"]],
                "options": list(q["criteria"])} for k, q in NOTE_QUESTIONS.items()}
-    return res | {"summary": summary, "follow_up": follow}
+    r = res.pop("route")
+    return res | {"summary": summary, "follow_up": follow, "route": route(
+        body.transcript, res["disposition"]["value"], r["value"], r["confidence"], res["category"]["value"]) | {"options": r["options"]}}
 
 
 QA_STEPS = [  # (checklist label, what Gemma looks for); from kb/telco.md's billing + angry-customer procedures

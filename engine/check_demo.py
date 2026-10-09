@@ -1,6 +1,7 @@
 """Scripted demo check: stream engine/demo/call.wav via /ws/demo, print every message with its time,
 assert no raw card digits, then POST /notes and /qa. Polls /egress every 2 s throughout (Earshot must stay at 0). Engine must be running: uv run --offline python check_demo.py"""
-import asyncio, json, time, re, urllib.request, websockets
+import asyncio, json, sys, time, re, urllib.request, websockets
+FILE = sys.argv[1] if len(sys.argv) > 1 else "call.wav"  # check_demo.py call-en.wav: the English video call
 eg = []
 async def poll_egress():
     while True:
@@ -8,7 +9,7 @@ async def poll_egress():
         await asyncio.sleep(2)
 async def main():
     t0 = time.time(); lines = []; beats = {}; steps = []; poller = asyncio.create_task(poll_egress())
-    async with websockets.connect("ws://127.0.0.1:8765/ws/demo", max_size=None) as ws:
+    async with websockets.connect(f"ws://127.0.0.1:8765/ws/demo?file={FILE}", max_size=None) as ws:
         try:
             async for raw in ws:
                 m = json.loads(raw); t = time.time() - t0; k = m["type"]
