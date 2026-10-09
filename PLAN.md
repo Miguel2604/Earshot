@@ -72,7 +72,12 @@ Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tune
 - Do NOT hide the window from screen capture (no content protection): the demo video must show it.
 - All later phases build their UI inside this overlay.
 
-### Phase 1: reliable audio in (do first)
+### Phase 1: reliable audio in ✅ done (mic in the Tauri webview not verified)
+- **Built:** `WS /ws/demo` streams `engine/demo/call.wav` through the same pipeline as `/ws/call` at real-time pace, then sends `{"type":"end"}`; `GET /demo/call.wav` serves the audio; header "Demo call" button plays it and auto-ends the call (notes appear). Chunks are cut at the quietest 0.1 s of each chunk's last second (`split_on_silence`, remainder carried into the next chunk; check: `engine/test_chunking.py`). Whisper is forced to `language="tl"` (auto-detect output Hindi script on a TTS chunk). Mic path now shows "Microphone unavailable… Use Demo call." if `getUserMedia` fails.
+- **Placeholder demo audio:** `engine/demo/make_demo.sh` (macOS `say` Samantha + Rishi, ffmpeg → 16 kHz mono) makes a 59 s Taglish double-charge call. Replace with the real recording in Phase 6.
+- **Verified:** `pnpm check` 0 errors, `cargo build`, `/health` (engine startup ~13 s warm cache), `test_chunking.py` ok. Scripted WS client: `/ws/call` transcript ~0.7 s per 5 s chunk; `/ws/demo` 12 transcripts, each ~0.4–0.5 s after its audio ends, suggestions ~0.1 s later, `end` at 59.9 s for a 59.4 s file; "Billing dispute or double charge" top hit on 9/12 chunks. In the browser at `localhost:1420` under `pnpm tauri dev`: Demo call → transcript + procedures stream in, call auto-ends, notes generated (issue/resolution/disposition/follow_up correct). Screenshot `docs/phase-1.png`.
+- **Not verified:** mic capture inside the Tauri webview (no way to grant the mic permission prompt unattended). The demo path doesn't depend on it.
+- Spec:
 1. Verify mic capture inside the Tauri window (`pnpm tauri dev`). The mic permission string is in `app/src-tauri/Info.plist`. If `getUserMedia` fails in the webview, move capture into the engine (`sounddevice`) and keep the same WS messages.
 2. **Demo-call mode** (top priority): an engine endpoint that streams a WAV from `engine/demo/` in 5 s chunks through the same pipeline at real-time pace, plus a "Play demo call" button. This is what we show on stage.
 3. Chunking: add ~0.5 s overlap, or cut on silence, so words aren't split. Keep it simple.

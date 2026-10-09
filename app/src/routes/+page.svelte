@@ -13,6 +13,7 @@
   let suggestions = $state<Suggestion[]>([]);
   let notes = $state<Notes | null>(null);
   let writingNotes = $state(false);
+  let micError = $state("");
 
   let ws: WebSocket | null = null;
   let stopAudio: (() => void) | null = null;
@@ -27,17 +28,38 @@
   }
   checkEngine();
 
-  async function startCall() {
+  function openCall(path: string) {
     lines = [];
     suggestions = [];
     notes = null;
-    ws = new WebSocket(`ws://${ENGINE}/ws/call`);
+    ws = new WebSocket(`ws://${ENGINE}${path}`);
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
       if (m.type === "transcript") lines = [...lines, m.text];
       if (m.type === "suggestions") suggestions = m.items;
+      if (m.type === "end") endCall(); // demo call finished
     };
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+    live = true;
+  }
+
+  // Demo-call mode: the engine streams engine/demo/call.wav through the pipeline at real-time pace; we play the audio.
+  function playDemo() {
+    openCall("/ws/demo");
+    const audio = new Audio(`http://${ENGINE}/demo/call.wav`);
+    audio.play().catch(() => {}); // transcript still streams if playback is blocked
+    stopAudio = () => audio.pause();
+  }
+
+  async function startCall() {
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+    } catch (e) {
+      micError = `Microphone unavailable (${(e as Error).name}). Use Demo call.`;
+      return;
+    }
+    micError = "";
+    openCall("/ws/call");
     const ctx = new AudioContext({ sampleRate: 16000 });
     const src = ctx.createMediaStreamSource(stream);
     // ponytail: ScriptProcessorNode is deprecated but works in WKWebView/WebView2; move to AudioWorklet if it glitches.
@@ -63,12 +85,13 @@
       stream.getTracks().forEach((t) => t.stop());
       ctx.close();
     };
-    live = true;
   }
 
   async function endCall() {
     stopAudio?.();
+    stopAudio = null;
     ws?.close();
+    ws = null;
     live = false;
     if (!lines.length) return;
     writingNotes = true;
@@ -90,6 +113,7 @@
     {#if live}
       <button class="primary" onclick={endCall}>End call</button>
     {:else}
+      <button class="secondary" disabled={!engineUp} onclick={playDemo}>Demo call</button>
       <button class="primary" disabled={!engineUp} onclick={startCall}>Start call</button>
     {/if}
   </header>
@@ -106,7 +130,7 @@
 
   <section class="card transcript">
     <h2>Live transcript</h2>
-    {#each lines.slice(-6) as line}<p>{line}</p>{:else}<p class="muted">Start a call to see the transcript.</p>{/each}
+    {#each lines.slice(-6) as line}<p>{line}</p>{:else}<p class="muted">{micError || "Start a call to see the transcript."}</p>{/each}
   </section>
 
   {#if writingNotes || notes}
@@ -153,6 +177,7 @@
   button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 8px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; }
   button.primary { background: var(--primary); color: #fff; }
   button.primary:active { background: var(--primary-active); }
+  button.secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
   button:disabled { opacity: 0.4; cursor: default; }
   .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; overflow-y: auto; min-height: 0; }
   .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai); }

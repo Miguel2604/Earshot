@@ -20,7 +20,8 @@ def transcribe(audio: np.ndarray) -> str:
     """16 kHz mono float32 PCM -> text. ~0.9s for an 8s clip on M5."""
     import mlx_whisper
 
-    return mlx_whisper.transcribe(audio, path_or_hf_repo=WHISPER)["text"].strip()
+    # language="tl": auto-detect flips to Hindi/English on accented Taglish; forced Tagalog still writes English words fine.
+    return mlx_whisper.transcribe(audio, path_or_hf_repo=WHISPER, language="tl")["text"].strip()
 
 
 @cache
