@@ -10,7 +10,7 @@ struct Engine(Mutex<Option<Child>>);
 fn spawn_engine() -> Option<Child> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../engine");
     Command::new("uv")
-        .args(["run", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8765"])
+        .args(["run", "--offline", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8765"])
         .current_dir(dir)
         .spawn()
         .map_err(|e| eprintln!("engine failed to start (is uv installed?): {e}"))

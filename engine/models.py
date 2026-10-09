@@ -8,7 +8,9 @@ from pathlib import Path
 
 import numpy as np
 
-os.environ.setdefault("HF_HUB_OFFLINE", "1")  # never reach out to Hugging Face at runtime
+# Never reach out to Hugging Face at runtime (huggingface_hub, transformers, sentence-transformers all honor these).
+for k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_HUB_DISABLE_TELEMETRY"):
+    os.environ.setdefault(k, "1")
 MODELS = Path(os.environ.get("EARSHOT_MODELS", "~/models")).expanduser()
 WHISPER = str(MODELS / "whisper-large-v3-turbo-mlx")
 EMBEDDER = str(MODELS / "embeddinggemma-2")

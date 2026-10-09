@@ -23,6 +23,7 @@
   let writingNotes = $state(false);
   let micError = $state("");
   let copied = $state(false);
+  let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
 
   let transcriptEl: HTMLElement;
   $effect(() => {
@@ -143,6 +144,8 @@
   }
 </script>
 
+<svelte:window bind:online />
+
 <div class="panel" class:done={notes}>
   <header data-tauri-drag-region>
     <strong data-tauri-drag-region>Earshot</strong>
@@ -211,7 +214,10 @@
   {/if}
 
   <!-- The engine makes no network calls; card numbers, mobiles and emails are masked there before reaching this UI. -->
-  <footer><span>0 bytes sent to cloud</span><span>PII masked on-device</span></footer>
+  <footer>
+    <span><span class="net" class:off={!online}></span>{online ? "Online" : "Offline"} · 0 bytes sent to cloud</span>
+    <span>PII masked on-device</span>
+  </footer>
 </div>
 
 <style>
@@ -230,6 +236,8 @@
     --primary: #181d26;
     --primary-active: #0d1218;
     --ai: #aa2d00; /* signature coral */
+    --border-strong: #9297a0;
+    --success-border: #39bf45;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--body);
     background: transparent;
@@ -271,6 +279,8 @@
   article.top { border-color: var(--ai); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
   footer { flex: none; display: flex; justify-content: space-between; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
+  .net { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--border-strong); }
+  .net.off { background: var(--success-border); }
   .picks { display: flex; gap: 8px; }
   .picks label { flex: 1; min-width: 0; }
   label { display: block; font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); margin-bottom: 10px; }

@@ -20,8 +20,8 @@ BPO clients forbid pasting customer data into cloud AI tools (client contracts, 
 Demo hardware: MacBook (Apple M5, 24 GB). Windows path (whisper.cpp + llama.cpp behind the same engine API) is planned, not built.
 
 ## What runs locally / what needs internet
-- **Local:** all AI inference (speech-to-text, embeddings, LLM), the UI, the knowledge base.
-- **Internet:** only once, to download model weights (`engine/fetch_models.sh`). The engine runs with `HF_HUB_OFFLINE=1`.
+- **Local (works with Wi-Fi off):** everything at call time. Speech-to-text (Whisper), English subtitles, "say this" replies and note summaries (Gemma 4 E4B), live intent + mood and the note dropdowns (Laya), knowledge-base search (EmbeddingGemma 2), PII masking (regex in the engine), the demo call, the UI. The app only talks to its own engine on `127.0.0.1:8765`; the footer shows Online/Offline next to "0 bytes sent to cloud".
+- **Internet:** only for setup: downloading model weights once (`engine/fetch_models.sh`, from ModelScope) and installing packages (`uv sync`, `pnpm install`, Rust crates). At runtime the engine sets `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE` and `HF_HUB_DISABLE_TELEMETRY`, and the app starts it with `uv run --offline`.
 
 ## Run it
 Requires macOS on Apple Silicon, [uv](https://docs.astral.sh/uv/), pnpm, Rust.

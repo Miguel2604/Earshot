@@ -114,7 +114,19 @@ Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tune
 - `/notes`: Laya picks **category, priority, disposition** from fixed lists (dropdown-safe values with confidence); Gemma writes only the summary and follow-up, and is told not to invent facts.
 - Editable fields, "Copy to CRM" (clipboard, formatted). Notes use the masked transcript.
 
-### Phase 5: prove "local"
+### Phase 5: prove "local" ✅ done (Wi-Fi-off run is the user's, by hand)
+- **Built:** footer now reads "● Online/Offline · 0 bytes sent to cloud" + "PII masked on-device" (`<svelte:window bind:online>` = `navigator.onLine`, updates on the `online`/`offline` events; green dot when offline). Engine sets `HF_HUB_OFFLINE`, `TRANSFORMERS_OFFLINE`, `HF_HUB_DISABLE_TELEMETRY` (in `models.py`, before any HF library is imported). Tauri launches the engine with `uv run --offline`, so uv never tries to resolve packages over the network. README "What runs locally / what needs internet" updated.
+- **Verified (no system settings touched):** `pnpm check` 0 errors, `cargo build`, the three `test_*.py` ok, engine starts with all offline flags set (`uv run --offline`, `/health` ok in 13 s). Locality: `lsof -nP -i -a -p <pid>` sampled every 0.5 s over the uv + Python engine processes from launch through model loading, a full `/ws/demo` run and `POST /notes` (2 runs, ~215 samples each): the only sockets were `127.0.0.1:8765` LISTEN and `127.0.0.1:8765<->127.0.0.1` client connections; no other TCP/UDP socket ever. Browser pane network log: every request went to `localhost:1420` or `127.0.0.1:8765`. Demo run: 12 masked lines, `end` at 60.4 s, no raw card digits in any text field, notes billing 1.00 / medium 0.53 / follow-up 0.82 in 2.0–2.1 s. Browser at `localhost:1420` under `pnpm tauri dev` (420 px): footer fits (scrollWidth 378 = clientWidth), Demo call → notes; `offline` emulated in-page (overriding `navigator.onLine` + dispatching the event) → "Offline · 0 bytes sent to cloud" with green dot, `online` → back to "Online". Screenshot `docs/phase-5.png`.
+- **Measured:** engine startup 13 s (warm cache); per chunk whisper 0.41–0.49 s, translate 0.54–0.62 s, Laya+KB 0.06–0.08 s, reply ~0.7 s; `/notes` 2.0–2.1 s.
+- **Wi-Fi-off rehearsal (user, by hand, before Demo Day):**
+  1. Quit everything. Turn Wi-Fi off (and unplug Ethernet / turn off iPhone hotspot).
+  2. `cd app && pnpm tauri dev`. Expect the panel within ~1 min and the badge to go from "Loading models…" to "On-device · offline" (~15–25 s). Footer shows a green dot + "Offline".
+  3. Click **Demo call**: transcript + subtitles stream, `•••• 4821` appears ~35 s, mood meter climbs, escalation banner, "Say this" reply, call auto-ends ~60 s, notes appear (Billing / Medium / Follow-up).
+  4. Edit a field, click **Copy to CRM**, paste somewhere (`pbpaste`).
+  5. Optional proof for the video: in another terminal `lsof -nP -i -a -p $(lsof -tnP -iTCP:8765 -sTCP:LISTEN)` shows only `127.0.0.1` sockets.
+  6. Turn Wi-Fi back on: footer flips to "Online" (grey dot).
+  If step 2 fails offline: run `cd engine && uv run --offline uvicorn server:app --port 8765` alone to see the error; most likely a missing package in the uv cache (fix with Wi-Fi on: `uv sync`).
+- Spec:
 - Network indicator (`navigator.onLine`) next to the "0 bytes" counter. Rehearse the full demo with Wi-Fi off.
 - Keep README's "What runs locally / what requires internet" accurate.
 
