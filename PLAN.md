@@ -154,6 +154,11 @@ Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tune
 - **Screenshot KB:** load the full EmbeddingGemma 2 (vision) and index procedure screenshots directly.
 - Speaker labels (agent vs customer) only via two audio inputs, no diarization models.
 
+### UI pass: Cluely-style translucent overlay ✅ done (before Phase 7)
+- **Built:** Miguel's dark glass theme + new app icons committed as-is; then the panel restyled to the Cluely look he asked for: smoked glass (dark tint `rgba(14,16,20,.55)` + `backdrop-filter: blur(30px) saturate(160%)` in a browser; natively macOS `hudWindow` vibrancy from `tauri.conf.json` `windowEffects` with a lighter `.15` tint via `.panel.native`), 1px white hairline border, 16px radius, white text with a soft text shadow, pill buttons/badges/chips, light coral `#ff9470` (tint + hairline) only for AI elements, 500-weight muted section headings. Same structure and features. No new deps, no web fonts, no content protection.
+- **Verified:** `pnpm check` 0 errors, `cargo build`, `/health` ok under `pnpm tauri dev`. Browser at 420 px (no horizontal scroll, scrollWidth 420) with a temporary light and dark wallpaper-like body background: text readable on both, background clearly shows through. Demo call: escalation at 41.1 s, notes + QA 4/5 at the end (billing 1.00 / medium 0.64 / follow-up 0.83) → `docs/ui-cluely.png` (mid-call | after notes). Native window via `screencapture`: vibrancy blurs the desktop behind the panel → `docs/ui-cluely-native.png` (idle).
+- **Weak spots:** over a dark app the native panel looks near-opaque dark grey (hudWindow's blur is heavy; small text behind is fully blurred out). Its look over a bright wallpaper wasn't captured natively (the window was being moved during the pass). New UI in Phases 7–11 should use the same tokens (`--hairline`, `--surface`, `--ai`, `--ai-tint`, `--ai-line`, pill radius 999px).
+
 ## Overnight phases 7–11: demo "oomph" (autonomous run, approved by Miguel 00:30 Sat Oct 10)
 Do these **after** the Stretch QA checklist is committed, in this order, one commit per phase. The demo must stay safe:
 - **Hard stop 08:00.** Anything not solid by then is reverted (`git revert`/`git checkout -- <files>`), not shipped half-done. 08:00–10:00 is for Miguel.

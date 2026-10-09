@@ -26,6 +26,7 @@
   let micError = $state("");
   let copied = $state(false);
   let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
+  const native = "__TAURI_INTERNALS__" in window; // native window already blurs the desktop (hudWindow vibrancy): lighter tint
 
   let transcriptEl: HTMLElement;
   $effect(() => {
@@ -151,7 +152,7 @@
 
 <svelte:window bind:online />
 
-<div class="panel" class:done={notes}>
+<div class="panel" class:done={notes} class:native>
   <header data-tauri-drag-region>
     <strong data-tauri-drag-region>Earshot</strong>
     <span class="badge" data-tauri-drag-region>{engineUp ? "On-device · offline" : "Loading models…"}</span>
@@ -233,63 +234,68 @@
 </div>
 
 <style>
-  /* Cluely-style dark glass: translucent white-on-smoke tokens over native macOS vibrancy
-     (tauri.conf.json windowEffects: hudWindow blurs the desktop behind the window).
-     Coral stays reserved for AI elements. No web fonts: the app must work offline. */
+  /* Cluely-style smoked glass: a low-opacity dark tint over a heavy blur, so the desktop shows through.
+     Natively the blur is macOS vibrancy (tauri.conf.json windowEffects: hudWindow); in a browser it's backdrop-filter.
+     Light coral only for AI elements, headings 400–500, no web fonts (the app must work offline). */
   :global(:root) {
-    --canvas: rgba(255, 255, 255, 0.08);
+    --canvas: rgba(255, 255, 255, 0.1);
     --surface: rgba(255, 255, 255, 0.05);
-    --surface-soft: rgba(255, 255, 255, 0.08);
-    --hairline: rgba(255, 255, 255, 0.12);
-    --surface-strong: rgba(255, 255, 255, 0.15);
-    --ink: #f5f6f8;
-    --body: rgba(255, 255, 255, 0.85);
-    --muted: rgba(255, 255, 255, 0.6);
-    --primary: rgba(255, 255, 255, 0.92);
+    --surface-soft: rgba(255, 255, 255, 0.1);
+    --hairline: rgba(255, 255, 255, 0.14);
+    --surface-strong: rgba(255, 255, 255, 0.18);
+    --ink: #ffffff;
+    --body: rgba(255, 255, 255, 0.9);
+    --muted: rgba(255, 255, 255, 0.68);
+    --primary: rgba(255, 255, 255, 0.94);
     --primary-active: rgba(255, 255, 255, 0.75);
-    --ai: #f0602b; /* signature coral, brightened for dark glass */
-    --border-strong: rgba(255, 255, 255, 0.35);
+    --ai: #ff9470; /* signature coral, lightened to read on dark glass */
+    --ai-tint: rgba(255, 148, 112, 0.16);
+    --ai-line: rgba(255, 148, 112, 0.55);
+    --border-strong: rgba(255, 255, 255, 0.4);
+    --success-border: #4ade80;
     color-scheme: dark;
-    --success-border: #39bf45;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--body);
     background: transparent;
   }
   :global(body) { margin: 0; background: transparent; overflow: hidden; }
-  /* Fills the window: the native vibrancy layer is the glass, rounded to the same 16px. */
-  .panel { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; gap: 12px; padding: 0 12px 12px;
-    background: rgba(18, 20, 24, 0.82); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
+  /* Fills the window; the native vibrancy layer is rounded to the same 16px. Text shadow keeps it readable on light wallpapers. */
+  .panel { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px;
+    background: rgba(14, 16, 20, 0.55); backdrop-filter: blur(30px) saturate(160%); -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); overflow: hidden; }
+  .panel.native { background: rgba(14, 16, 20, 0.15); } /* hudWindow is already a dark tint */
   header { display: flex; align-items: center; gap: 6px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
   header strong { font-weight: 500; font-size: 16px; }
-  header button { padding: 8px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */
+  header button { padding: 6px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */
   .spacer { flex: 1; align-self: stretch; }
-  .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
-  button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 8px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap; }
+  .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+  button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 7px 14px; border-radius: 999px; border: 0; cursor: pointer; white-space: nowrap; text-shadow: none; }
   button.primary { background: var(--primary); color: #111317; }
   button.primary:active { background: var(--primary-active); }
   button.secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
+  button.secondary:hover:not(:disabled) { background: var(--surface-strong); }
   button:disabled { opacity: 0.4; cursor: default; }
-  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 16px; overflow-y: auto; min-height: 0; }
-  .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai); }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 14px; padding: 14px 16px; overflow-y: auto; min-height: 0; }
+  .suggest { flex: 0 1 auto; max-height: 45%; border-color: var(--ai-line); }
   .transcript { flex: 1 1 0; min-height: 96px; }
   .notes { flex: 2 1 0; min-height: 0; }
   .done .suggest { max-height: 22%; } /* call over: the notes are what the agent works on now */
-  h2 { font-weight: 400; font-size: 16px; line-height: 1.5; color: var(--ink); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
-  .ai { font-weight: 500; font-size: 12px; line-height: 1.4; color: #fff; background: var(--ai); padding: 2px 8px; border-radius: 6px; }
+  h2 { font-weight: 500; font-size: 13px; line-height: 1.5; letter-spacing: 0.2px; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .ai { font-weight: 500; font-size: 11px; line-height: 1.4; color: var(--ai); background: var(--ai-tint); border: 1px solid var(--ai-line); padding: 1px 8px; border-radius: 999px; }
   p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }
   .muted { color: var(--muted); }
   .reply { font-size: 16px; line-height: 1.45; color: var(--ink); margin-bottom: 12px; }
   .en { display: block; font-size: 13px; color: var(--muted); font-style: italic; }
   .signals { flex: none; display: flex; align-items: center; gap: 8px; padding: 0 4px; }
-  .chip { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--ai); border: 1px solid var(--ai); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .chip { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--ai); background: var(--ai-tint); border: 1px solid var(--ai-line); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
   .mood-label { font-weight: 500; font-size: 12px; color: var(--muted); }
   .meter { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-strong); overflow: hidden; }
   .meter span { display: block; height: 100%; background: var(--ai); transition: width 0.6s ease; }
-  .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(240, 96, 43, 0.15); border: 1px solid var(--ai); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
-  .escalate button { padding: 6px 10px; font-size: 13px; }
-  article { border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
-  article.top { border-color: var(--ai); }
+  .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 7px 7px 14px; border-radius: 14px; background: var(--ai-tint); border: 1px solid var(--ai-line); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
+  .escalate button { padding: 5px 11px; font-size: 13px; }
+  article { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  article.top { border-color: var(--ai-line); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
   footer { flex: none; display: flex; justify-content: space-between; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
   .net { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--border-strong); }
@@ -298,12 +304,13 @@
   .picks label { flex: 1; min-width: 0; }
   label { display: block; font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); margin-bottom: 10px; }
   select, textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink);
-    background: var(--canvas); border: 1px solid var(--hairline); border-radius: 6px; padding: 6px 8px; }
+    background: rgba(0, 0, 0, 0.22); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 8px; }
+  option { background: #1c1f24; color: #fff; }
   textarea { resize: vertical; }
-  select:focus, textarea:focus { outline: 2px solid #458fff; outline-offset: -1px; }
+  select:focus, textarea:focus { outline: 2px solid rgba(255, 255, 255, 0.45); outline-offset: -1px; }
   .copy { width: 100%; }
   .qa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
   .qa-title { font-weight: 500; font-size: 12px; color: var(--muted); margin-right: 2px; }
-  .step { font-size: 12px; line-height: 1.35; padding: 3px 8px; border-radius: 6px; background: var(--canvas); color: var(--muted); border: 1px solid var(--hairline); }
-  .step.done { color: var(--ai); border-color: var(--ai); }
+  .step { font-size: 12px; line-height: 1.35; padding: 3px 9px; background: var(--canvas); color: var(--muted); border: 1px solid var(--hairline); }
+  .step.done { color: var(--ai); background: var(--ai-tint); border-color: var(--ai-line); }
 </style>
