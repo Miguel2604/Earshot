@@ -178,6 +178,7 @@ QUESTIONS = {
              "criteria": {"polite": "calm, friendly, thankful", "angry": "angry, demanding, complaining, impatient"}},
 }
 SMALL_TALK = re.compile(r"thank you for calling|how (may|can) i (help|assist)|salamat (po )?sa pagtawag", re.I)
+AGENT = re.compile(r"thank you for calling|how (may|can) i|\b(i'm sorry|i apologize|i understand|i can see|i will|you will|may i|pwede ko po)\b", re.I)
 SUPERVISOR = re.compile(r"\b(supervisor|manager)\b", re.I)  # asking for one = escalation, whatever Laya's tone says
 MOOD_HIGH = 0.5  # smoothed P(angry) at or above this for 2 chunks -> escalate; calibrated on the demo call
 
@@ -189,6 +190,12 @@ def new_call() -> dict:
 
 def is_english(text: str) -> bool:
     return not TAGALOG & set(re.findall(r"[a-z']+", text.lower()))
+
+
+def customer_english(lines: list[str]) -> bool:
+    """Language of the latest customer-sounding line (no speaker labels: skip lines with agent phrases)."""
+    cust = [l for l in lines if not AGENT.search(l)] or lines
+    return is_english(cust[-1])
 
 
 def small_talk(text: str) -> bool:
@@ -285,10 +292,11 @@ async def enrich(ws: WebSocket, n: int, text: str, st: dict, ms: dict):
         st["intent"], st["esc"] = intent, escalate
         if (REQUEST.search(text) or changed or escalate) and st["seq"] == n:  # plain-rule gate (Laya yes/no is unusable)
             recent = "\n".join(st["lines"][-3:])
+            lang = "English only" if customer_english(st["lines"][-3:]) else "Taglish (Tagalog + English, like the customer), use po"
             async with running(ws, "gemma", ms, "reply"):
                 reply = await asyncio.to_thread(models.generate,
                     "You help a Philippine call center agent. Suggest the agent's next line: 1-2 short sentences, "
-                    "polite, Taglish ok (use po). Follow the procedure; don't invent facts. Output only the line.\n\n"
+                    f"polite, in {lang}. Follow the procedure; don't invent facts. Output only the line.\n\n"
                     f"Procedure:\n{hits[0][1]}\n\nLast lines of the call:\n{recent}", 80)
             await ws.send_json({"type": "reply", "id": n, "text": mask(reply)})
         await finish(ws, n, ms)

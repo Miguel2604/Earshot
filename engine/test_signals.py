@@ -20,4 +20,6 @@ assert best == "billing"
 t = "Po. Weed ko po bang makyuhang account number ninyo?\nyou will get an SMS confirmation."  # QA quotes must be in the call
 assert server.grounded("you will get an SMS confirmation", t) and server.grounded("Po. Weed ko po bang account number ninyo", t)
 assert not server.grounded(None, t) and not server.grounded("null", t) and not server.grounded("I will call you back within 24 hours", t)
+assert server.customer_english(["Hi, I was charged twice. Can you fix it?"])  # reply language follows the customer
+assert not server.customer_english(["Ilang beses na akong tumawag.", "I'm sorry to hear that. I will check."])
 print("ok")

@@ -189,7 +189,8 @@ Do these **after** the Stretch QA checklist is committed, in this order, one com
 - Per-line mood is already sent (`signals.mood_raw`, `mood`, `escalate`, with `id`). Keep it per line in the UI. In the notes card, above the dropdowns, draw an inline SVG sparkline (~380×48): smoothed mood over time, escalation chunks shaded, a dot where the card number / alert happened if available. Hover shows the line's English subtitle; click scrolls the transcript to that line and highlights it. Copy to CRM adds one line: `Mood: calm → upset (escalated at 0:41) → calm`.
 - **Done when:** the demo's notes show the outburst peak at ~35–46 s and clicking it scrolls to the supervisor line.
 
-### Phase 10: "Say this" in the customer's language
+### Phase 10: "Say this" in the customer's language ✅ done
+- **Done:** `customer_english()` = `is_english()` on the latest of the last 3 lines without agent phrases (`AGENT` regex); the reply prompt says "in English only" or "in Taglish ..., use po". Demo: replies Taglish with po (12.2 s first), reply 0.5–1.0 s; English test line (`say`, via `/ws/call`) → English reply (1.3 s, first call). Beats unchanged.
 - Reply prompt (`enrich`): reply in the same language mix as the customer's last line (Taglish → Taglish with "po", English → English). Use the existing `is_english()` on the latest non-agent-sounding line; no new model. Keep it 1–2 sentences, same gate.
 - **Done when:** on the demo, Taglish lines get Taglish replies and an English test line gets an English reply; reply latency unchanged (≤1.2 s).
 
