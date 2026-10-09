@@ -292,8 +292,9 @@
 </div>
 
 <style>
-  /* Cluely-style clear glass: no native vibrancy (every macOS material blurs the desktop away), an 8% wash plus a light
-     6px backdrop-filter, which in the transparent Tauri window frosts the desktop itself. Text shadows, not a tint, carry legibility.
+  /* Cluely-style glass: no native vibrancy (every macOS material blurs the desktop away) and no backdrop-filter (in the
+     transparent Tauri window it re-rasterized on DOM updates and blinked clear/frosted). A tinted wash plus text halos carry
+     legibility; it follows the macOS appearance (dark glass + white ink, or light frost + dark ink).
      Light coral only for AI elements, headings 400–500, no web fonts (the app must work offline). */
   :global(:root) {
     --canvas: rgba(255, 255, 255, 0.1);
@@ -311,24 +312,55 @@
     --ai-line: rgba(255, 148, 112, 0.55);
     --border-strong: rgba(255, 255, 255, 0.4);
     --success-border: #4ade80;
+    --wash: rgba(20, 20, 24, 0.7);
+    --edge: rgba(255, 255, 255, 0.22);
+    --halo: 0 0 1px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.45);
+    --on-primary: #111317;
+    --field: rgba(0, 0, 0, 0.22);
+    --alert-ink: #ff8a8a;
     color-scheme: dark;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     color: var(--body);
     background: transparent;
   }
+  @media (prefers-color-scheme: light) {
+    :global(:root) {
+      --canvas: rgba(255, 255, 255, 0.5);
+      --surface: rgba(255, 255, 255, 0.35);
+      --surface-soft: rgba(0, 0, 0, 0.05);
+      --hairline: rgba(0, 0, 0, 0.12);
+      --surface-strong: rgba(0, 0, 0, 0.1);
+      --ink: #111317;
+      --body: rgba(17, 19, 23, 0.88);
+      --muted: rgba(17, 19, 23, 0.62);
+      --primary: #111317;
+      --primary-active: rgba(17, 19, 23, 0.75);
+      --ai: #c8461a; /* coral, darkened to read on light frost */
+      --ai-tint: rgba(232, 93, 46, 0.12);
+      --ai-line: rgba(200, 70, 26, 0.5);
+      --border-strong: rgba(0, 0, 0, 0.3);
+      --success-border: #16a34a;
+      --wash: rgba(250, 250, 252, 0.84);
+      --edge: rgba(0, 0, 0, 0.12);
+      --halo: 0 0 2px #fff, 0 0 6px rgba(255, 255, 255, 0.9);
+      --on-primary: #ffffff;
+      --field: rgba(255, 255, 255, 0.6);
+      --alert-ink: #c62828;
+      color-scheme: light;
+    }
+  }
   :global(body) { margin: 0; background: transparent; overflow: hidden; }
-  /* Fills the window. Almost clear (8% wash) like Cluely; the text shadow, not a tint, keeps text readable on light and busy backdrops. */
+  /* Fills the window. Static paint only: no backdrop-filter, nothing for WebKit to re-blur when the DOM updates. */
   .panel { box-sizing: border-box; height: 100vh; display: flex; flex-direction: column; gap: 10px; padding: 0 12px 12px;
-    background: rgba(20, 20, 24, 0.08); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    text-shadow: 0 0 1px rgba(0, 0, 0, 0.9), 0 1px 3px rgba(0, 0, 0, 0.75), 0 0 8px rgba(0, 0, 0, 0.45); overflow: hidden; }
+    background: var(--wash); border: 1px solid var(--edge); border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    text-shadow: var(--halo); overflow: hidden; }
   header { display: flex; align-items: center; gap: 6px; flex: none; height: 52px; margin: 0 -12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--hairline); color: var(--ink); cursor: grab; user-select: none; }
   header strong { font-weight: 500; font-size: 16px; }
   header button { padding: 6px 12px; } /* idle header (badge + 2 buttons) must fit a 420px window */
   .spacer { flex: 1; align-self: stretch; }
   .badge { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); background: var(--surface-soft); border: 1px solid var(--hairline); padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
   button { font-family: inherit; font-weight: 500; font-size: 14px; line-height: 1.4; padding: 7px 14px; border-radius: 999px; border: 0; cursor: pointer; white-space: nowrap; text-shadow: none; }
-  button.primary { background: var(--primary); color: #111317; }
+  button.primary { background: var(--primary); color: var(--on-primary); }
   button.primary:active { background: var(--primary-active); }
   button.secondary { background: var(--canvas); color: var(--ink); border: 1px solid var(--hairline); }
   button.secondary:hover:not(:disabled) { background: var(--surface-strong); }
@@ -352,7 +384,7 @@
   .meter { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-strong); overflow: hidden; }
   .meter span { display: block; height: 100%; background: var(--ai); transition: width 0.6s ease; }
   .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 7px 7px 14px; border-radius: 14px; background: var(--ai-tint); border: 1px solid var(--ai-line); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
-  .alert { background: rgba(255, 90, 90, 0.18); border-color: rgba(255, 110, 110, 0.65); color: #ff8a8a; }
+  .alert { background: rgba(255, 90, 90, 0.18); border-color: rgba(255, 110, 110, 0.65); color: var(--alert-ink); }
   .escalate button { padding: 5px 11px; font-size: 13px; }
   article { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai-line); }
@@ -373,10 +405,10 @@
   .picks label { flex: 1; min-width: 0; }
   label { display: block; font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); margin-bottom: 10px; }
   select, textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink);
-    background: rgba(0, 0, 0, 0.22); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 8px; }
+    background: var(--field); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 8px; }
   option { background: #1c1f24; color: #fff; }
   textarea { resize: vertical; }
-  select:focus, textarea:focus { outline: 2px solid rgba(255, 255, 255, 0.45); outline-offset: -1px; }
+  select:focus, textarea:focus { outline: 2px solid var(--border-strong); outline-offset: -1px; }
   .copy { width: 100%; }
   .qa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 12px; }
   .qa-title { font-weight: 500; font-size: 12px; color: var(--muted); margin-right: 2px; }
