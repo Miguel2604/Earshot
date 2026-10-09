@@ -4,7 +4,9 @@ Run: uv run uvicorn server:app --port 8765
 """
 
 import asyncio
+import os
 import re
+import subprocess
 import time
 import wave
 from contextlib import asynccontextmanager
@@ -51,6 +53,61 @@ app.mount("/demo", StaticFiles(directory=DEMO_WAV.parent), name="demo")  # UI pl
 @app.get("/health")
 def health():
     return {"ok": True, "kb_docs": len(kb_docs)}
+
+
+def _ppid_is_uv() -> bool:
+    ps = subprocess.run(["ps", "-o", "comm=", "-p", str(os.getppid())], capture_output=True, text=True).stdout
+    return os.path.basename(ps.strip()) == "uv"
+
+
+ENGINE_PIDS = [os.getpid()] + ([os.getppid()] if _ppid_is_uv() else [])  # python + `uv run` (when Tauri started it)
+LOOPBACK = re.compile(r"^(127\.|::1$|localhost$|.*%lo0$)")
+seen: dict[str, int] = {}  # non-loopback socket -> max bytes out seen, so closed sockets still count
+
+
+def parse_nettop(out: str) -> dict[str, int]:
+    """nettop -J bytes_in,bytes_out per-socket lines ("tcp4 local<->remote,in,out,") -> {socket: bytes_out},
+    keeping only sockets that talk to a non-loopback address (listening/unsent wildcard sockets are skipped)."""
+    res = {}
+    for line in out.splitlines():
+        if not line.startswith(("tcp", "udp")) or "<->" not in line:
+            continue
+        sock, _, b_out = line.split(",")[:3]
+        proto, pair = sock.split(" ", 1)
+        local, remote = pair.split("<->")
+        host = lambda a: a.rsplit(":" if proto.endswith("4") else ".", 1)[0]
+        if LOOPBACK.match(host(local)) or LOOPBACK.match(host(remote)):
+            continue
+        out_b = int(b_out or 0)
+        if host(remote) != "*" or out_b:  # a wildcard socket counts only once it has sent something
+            res[sock] = out_b
+    return res
+
+
+def parse_netstat(out: str) -> int:
+    """netstat -ib -> total bytes out of every non-loopback interface (one <Link#> row per interface)."""
+    total = 0
+    for row in out.splitlines()[1:]:
+        f = row.split()
+        if len(f) >= 10 and f[2].startswith("<Link#") and not f[0].startswith("lo"):
+            total += int(f[-2])
+    return total
+
+
+def egress_now() -> dict:
+    run = lambda *a: subprocess.run(a, capture_output=True, text=True, timeout=5).stdout
+    pids = [x for p in ENGINE_PIDS for x in ("-p", str(p))]
+    for k, v in parse_nettop(run("nettop", "-L", "1", "-n", "-J", "bytes_in,bytes_out", *pids)).items():
+        seen[k] = max(seen.get(k, 0), v)
+    return {"engine_bytes_out": sum(seen.values()), "engine_remote_conns": len(seen),
+            "mac_bytes_out": parse_netstat(run("netstat", "-ib"))}
+
+
+@app.get("/egress")
+async def egress():
+    """Real egress meter: the engine's non-loopback traffic (expected 0) next to the whole Mac's bytes out
+    (it moves: Slack, browser), which proves the counter is live. Never under the model lock."""
+    return await asyncio.to_thread(egress_now)
 
 
 def split_on_silence(pcm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -139,41 +196,53 @@ def boosted(hits: list[tuple[float, str]], intent: str | None, escalate: bool) -
     return out[:3]
 
 
+@asynccontextmanager
+async def running(ws: WebSocket, step: str, ms: dict, key: str):
+    """Hold the model lock and light the UI's pill for `step` (whisper/gemma/laya/embed) while it runs; time it into ms[key]."""
+    async with lock:
+        await ws.send_json({"type": "busy", "step": step})
+        t = time.monotonic()
+        yield
+        ms[key] = time.monotonic() - t
+        await ws.send_json({"type": "busy", "step": None})
+
+
+async def finish(ws: WebSocket, n: int, ms: dict, note: str = ""):
+    """End of a chunk: log the per-model times and send them to the UI's model strip."""
+    print(f"chunk {n}: {note}" + " ".join(f"{k} {v:.2f}s" for k, v in ms.items()), flush=True)
+    await ws.send_json({"type": "timings", "id": n, "ms": {k: round(v * 1000) for k, v in ms.items()}})
+
+
 async def handle_chunk(ws: WebSocket, pcm: np.ndarray, st: dict, final: bool = False):
     """Transcribe one chunk and send {"type":"transcript"}; the rest (translation, signals, suggestions, reply)
     runs as a background job so the next chunk's transcript never waits behind a stale one."""
     st["seq"] += 1
-    n, t0 = st["seq"], time.monotonic()
-    async with lock:
+    n, ms = st["seq"], {}
+    async with running(ws, "whisper", ms, "whisper"):
         text = await asyncio.to_thread(models.transcribe, pcm)
     joined = f"{st['held']} {text}".strip()
     text, st["held"] = hold_tail(joined) if not final else (joined, "")
     text = mask(text)
     if not text:
-        return
+        return await finish(ws, n, ms, "no speech, ")
     await ws.send_json({"type": "transcript", "id": n, "text": text})
     st["lines"].append(text)
-    st["task"] = asyncio.create_task(enrich(ws, n, text, st, {"whisper": time.monotonic() - t0}))
+    st["task"] = asyncio.create_task(enrich(ws, n, text, st, ms))
 
 
 async def enrich(ws: WebSocket, n: int, text: str, st: dict, ms: dict):
     """Priority under the one lock: translation -> Laya -> KB -> reply. Stale translation/reply jobs are dropped."""
-    def tick(k, t):
-        ms[k] = time.monotonic() - t
     try:
         en = text
         if not is_english(text) and st["seq"] == n:
-            t = time.monotonic()
-            async with lock:
+            async with running(ws, "gemma", ms, "translate"):
                 en = mask(await asyncio.to_thread(models.generate,
                     f"Translate to natural English. Output only the translation.\n\n{text}", 60))
-            tick("translate", t)
             await ws.send_json({"type": "translation", "id": n, "text": en})
-        t = time.monotonic()
-        async with lock:
+        async with running(ws, "laya", ms, "laya"):
             a = await asyncio.to_thread(models.decide, en, QUESTIONS)
+        async with running(ws, "embed", ms, "kb"):
             hits = await asyncio.to_thread(models.search, text, kb_vecs, kb_docs, 5)
-        tick("laya+kb", t)
         small = small_talk(text)
         intent, p = vote(st, "closing" if small else a["intent"]["choice"], a["intent"].get("confidence", 0))
         st["moods"].append(a["mood"]["probabilities"]["angry"])
@@ -183,23 +252,20 @@ async def enrich(ws: WebSocket, n: int, text: str, st: dict, ms: dict):
         await ws.send_json({"type": "signals", "id": n, "intent": intent, "intent_p": p, "mood": mood,
                             "mood_raw": st["moods"][-1], "escalate": escalate})
         if small and not escalate:  # keep the previous procedures and reply
-            print(f"chunk {n}: small talk, " + " ".join(f"{k} {v:.2f}s" for k, v in ms.items()), flush=True)
-            return
+            return await finish(ws, n, ms, "small talk, ")
         hits = boosted(hits, intent, escalate)
         await ws.send_json({"type": "suggestions", "items": [{"score": s, "text": d} for s, d in hits]})
         changed = (intent, escalate) != (st["intent"], st["esc"])  # new topic, or escalation started/cleared
         st["intent"], st["esc"] = intent, escalate
         if (REQUEST.search(text) or changed or escalate) and st["seq"] == n:  # plain-rule gate (Laya yes/no is unusable)
-            t = time.monotonic()
             recent = "\n".join(st["lines"][-3:])
-            async with lock:
+            async with running(ws, "gemma", ms, "reply"):
                 reply = await asyncio.to_thread(models.generate,
                     "You help a Philippine call center agent. Suggest the agent's next line: 1-2 short sentences, "
                     "polite, Taglish ok (use po). Follow the procedure; don't invent facts. Output only the line.\n\n"
                     f"Procedure:\n{hits[0][1]}\n\nLast lines of the call:\n{recent}", 80)
-            tick("reply", t)
             await ws.send_json({"type": "reply", "id": n, "text": mask(reply)})
-        print(f"chunk {n}: " + " ".join(f"{k} {v:.2f}s" for k, v in ms.items()), flush=True)
+        await finish(ws, n, ms)
     except (WebSocketDisconnect, RuntimeError):  # client hung up
         pass
 

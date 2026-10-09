@@ -12,6 +12,9 @@
   type Step = { label: string; done: boolean; quote: string };
   const PICKS = ["category", "priority", "disposition"] as const;
   const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+  // Model strip: engine `busy` steps -> pill labels; `timings` keys (ms) -> pill (Gemma shows its last job, reply or translate).
+  const MODELS = [["whisper", "Whisper"], ["gemma", "Gemma"], ["laya", "Laya"], ["embed", "EmbedGemma"]] as const; // EmbeddingGemma 2; short so 4 timed pills fit 420 px
+  const bytes = (b: number) => (b < 1e3 ? `${b} B` : b < 1e6 ? `${(b / 1e3).toFixed(1)} KB` : `${(b / 1e6).toFixed(1)} MB`);
 
   let engineUp = $state(false);
   let live = $state(false);
@@ -26,6 +29,11 @@
   let micError = $state("");
   let copied = $state(false);
   let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
+  let busy = $state<string | null>(null); // model running right now (its pill pulses)
+  let times = $state<Record<string, number>>({}); // pill -> last time in ms
+  type Egress = { engine_bytes_out: number; engine_remote_conns: number; mac_bytes_out: number };
+  let egress = $state<Egress | null>(null);
+  let macBase = $state(0); // Mac's bytes out when the call (or the panel) started
 
   let transcriptEl: HTMLElement;
   $effect(() => {
@@ -43,6 +51,16 @@
       engineUp = false;
     }
     if (!engineUp) setTimeout(checkEngine, 2000); // engine takes ~20s to load models on first launch
+    else pollEgress();
+  }
+
+  // Real egress meter: the engine counts its own non-loopback sockets (nettop) and the Mac's bytes out (netstat).
+  async function pollEgress() {
+    try {
+      egress = await (await fetch(`http://${ENGINE}/egress`)).json();
+      if (!macBase) macBase = egress!.mac_bytes_out;
+    } catch {}
+    setTimeout(pollEgress, 2000);
   }
   checkEngine();
 
@@ -55,6 +73,9 @@
     notes = null;
     qa = null;
     copied = false;
+    busy = null;
+    times = {};
+    if (egress) macBase = egress.mac_bytes_out;
     ws = new WebSocket(`ws://${ENGINE}${path}`);
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
@@ -64,6 +85,9 @@
       if (m.type === "signals") signals = m;
       if (m.type === "reply") reply = m.text;
       if (m.type === "suggestions") suggestions = m.items;
+      if (m.type === "busy") busy = m.step;
+      if (m.type === "timings")
+        times = { ...times, whisper: m.ms.whisper, gemma: m.ms.reply ?? m.ms.translate ?? times.gemma, laya: m.ms.laya ?? times.laya, embed: m.ms.kb ?? times.embed };
       if (m.type === "end") endCall(); // demo call finished
     };
     live = true;
@@ -120,6 +144,7 @@
     ws?.close();
     ws = null;
     live = false;
+    busy = null;
     if (!lines.length) return;
     writingNotes = true;
     const post = (path: string) => fetch(`http://${ENGINE}${path}`, {
@@ -163,6 +188,13 @@
       <button class="primary" disabled={!engineUp} onclick={startCall}>Start call</button>
     {/if}
   </header>
+
+  <!-- Which local model is working right now, and how long each took on the last chunk. -->
+  <div class="models">
+    {#each MODELS as [k, label]}
+      <span class="model" class:busy={busy === k} title={k === "embed" ? "EmbeddingGemma 2 (KB search)" : undefined}>{label} <b>{times[k] != null ? `${(times[k] / 1000).toFixed(2)}s` : "–"}</b></span>
+    {/each}
+  </div>
 
   <section class="card suggest">
     <h2><span class="ai">AI</span> Say this</h2>
@@ -225,10 +257,12 @@
     </section>
   {/if}
 
-  <!-- The engine makes no network calls; card numbers, mobiles and emails are masked there before reaching this UI. -->
+  <!-- Live egress: the Mac's counter moves (other apps), Earshot's engine stays at 0. PII is masked in the engine. -->
   <footer>
-    <span><span class="net" class:off={!online}></span>{online ? "Online" : "Offline"} · 0 bytes sent to cloud</span>
-    <span>PII masked on-device</span>
+    <span class="egress" title="Bytes out since the call started (whole Mac) vs. the Earshot engine's non-local traffic">
+      {#if egress}This Mac: {bytes(Math.max(0, egress.mac_bytes_out - macBase))} out · <b>Earshot: {bytes(egress.engine_bytes_out)}, {egress.engine_remote_conns} connections</b>{:else}Measuring network…{/if}
+    </span>
+    <span class="row"><span><span class="net" class:off={!online}></span>{online ? "Online" : "Offline"}</span><span>PII masked on-device</span></span>
   </footer>
 </div>
 
@@ -295,7 +329,16 @@
   article { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai-line); }
   small { font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); }
-  footer { flex: none; display: flex; justify-content: space-between; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
+  .models { flex: none; display: flex; gap: 4px; margin-top: -2px; }
+  .model { flex: 1 1 auto; text-align: center; font-weight: 500; font-size: 11px; line-height: 1.35; color: var(--muted); background: var(--surface); border: 1px solid var(--hairline); padding: 2px 6px; border-radius: 999px; white-space: nowrap; transition: color 0.2s, background 0.2s, border-color 0.2s; }
+  .model b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .model.busy { color: var(--ai); background: var(--ai-tint); border-color: var(--ai-line); box-shadow: 0 0 10px var(--ai-line); animation: pulse 0.6s ease-in-out infinite alternate; }
+  .model.busy b { color: var(--ai); }
+  /* opacity only: compositor-side, no per-frame repaint under the panel's backdrop-filter */
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.7; } }
+  .egress b { font-weight: 500; color: var(--ink); }
+  footer .row { display: flex; justify-content: space-between; }
+  footer { flex: none; display: flex; flex-direction: column; gap: 3px; font-weight: 500; font-size: 12px; line-height: 1.35; letter-spacing: 0.16px; color: var(--muted); padding: 0 4px; }
   .net { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--border-strong); }
   .net.off { background: var(--success-border); }
   .picks { display: flex; gap: 8px; }
