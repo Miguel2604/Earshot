@@ -10,6 +10,7 @@
   type Pick = { value: string; confidence: number; options: string[] };
   type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string };
   type Step = { label: string; done: boolean; quote: string };
+  type Alert = { rule: string; text: string; hidden?: boolean };
   const PICKS = ["category", "priority", "disposition"] as const;
   const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
   // Model strip: engine `busy` steps -> pill labels; `timings` keys (ms) -> pill (Gemma shows its last job, reply or translate).
@@ -26,6 +27,7 @@
   let notes = $state<Notes | null>(null);
   let writingNotes = $state(false);
   let qa = $state<Step[] | null>(null);
+  let alerts = $state<Alert[]>([]); // compliance: agent asked for a CVV/OTP/PIN/password
   let micError = $state("");
   let copied = $state(false);
   let online = $state(true); // navigator.onLine, bound below: shows the demo still works with Wi-Fi off
@@ -72,6 +74,7 @@
     suggestions = [];
     notes = null;
     qa = null;
+    alerts = [];
     copied = false;
     busy = null;
     times = {};
@@ -84,6 +87,7 @@
       if (m.type === "translation") lines = lines.map((l) => (l.id === m.id ? { ...l, en: m.text } : l));
       if (m.type === "signals") signals = m;
       if (m.type === "reply") reply = m.text;
+      if (m.type === "alert") alerts = [...alerts, m];
       if (m.type === "suggestions") suggestions = m.items;
       if (m.type === "busy") busy = m.step;
       if (m.type === "timings")
@@ -154,7 +158,8 @@
     }).then((r) => r.json());
     notes = await post("/notes");
     writingNotes = false;
-    qa = (await post("/qa")).steps; // after notes, so the notes still land in ~2 s; the checklist ~3 s later
+    // Each compliance alert is a failed QA step, on top of Gemma's checklist.
+    qa = [...alerts.map((a) => ({ label: `No ${a.rule} ask`, done: false, quote: a.text })), ...(await post("/qa")).steps]; // after notes, so the notes still land in ~2 s; the checklist ~3 s later
   }
 
   // "Copy to CRM": plain text the agent pastes into the CRM's notes field (includes their edits).
@@ -206,6 +211,15 @@
       </article>
     {:else}<p class="muted">Suggested replies and procedures appear here as the customer talks.</p>{/each}
   </section>
+
+  {#each alerts as a}
+    {#if !a.hidden}
+      <div class="escalate alert" role="alert">
+        <span>{a.text}</span>
+        <button class="secondary" onclick={() => (a.hidden = true)}>Dismiss</button>
+      </div>
+    {/if}
+  {/each}
 
   {#if signals}
     <!-- Laya's live read of the call: a hint for the agent, never an action. -->
@@ -325,6 +339,7 @@
   .meter { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-strong); overflow: hidden; }
   .meter span { display: block; height: 100%; background: var(--ai); transition: width 0.6s ease; }
   .escalate { flex: none; display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 7px 7px 7px 14px; border-radius: 14px; background: var(--ai-tint); border: 1px solid var(--ai-line); color: var(--ai); font-weight: 500; font-size: 13px; line-height: 1.35; }
+  .alert { background: rgba(255, 90, 90, 0.18); border-color: rgba(255, 110, 110, 0.65); color: #ff8a8a; }
   .escalate button { padding: 5px 11px; font-size: 13px; }
   article { background: var(--surface); border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
   article.top { border-color: var(--ai-line); }

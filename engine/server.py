@@ -123,16 +123,34 @@ def split_on_silence(pcm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 NUMBER = re.compile(r"\+?\d[\d\s.\-]*\d")  # digit groups split by spaces/dots/dashes: "2222-3333-4821"
 EMAIL = re.compile(r"[\w.+-]+@([\w-]+(?:\.[\w-]+)+)")
-TAIL = re.compile(r"\+?\d[\d\s.\-]*[.,]?$")  # digits at the very end of a chunk may continue in the next one
+TAIL = re.compile(r"\+?\d[\d\s.,\-]*$")  # digits at the very end of a chunk may continue in the next one ("1, 2,")
+SECRET_KEY = r"\b(cvv|cvc|security code|otp|pin|password)\b"
+# 3-8 digits within 5 words after a secret keyword: "CVV ko 123", "CVV ng card nyo. Uh, 1, 2, 3"
+SECRET = re.compile(SECRET_KEY + r"((?:\W+\w+){0,5}?\W+)(\d(?:[\s.,\-]*\d){2,7})\b", re.I)
+ASK_WORD = re.compile(r"\b(paki\w*|bigay|ano|pwede|puwede|give|provide|what|your|niyo|nyo|ninyo)\b", re.I)
+RULES = {"cvv": "CVV", "cvc": "CVV", "security code": "CVV", "otp": "OTP", "pin": "PIN", "password": "password"}
 
 
 def mask(text: str) -> str:
     """Mask PII before text leaves the engine: any run of 7+ digits (cards, PH mobiles, account numbers)
-    becomes "•••• 4821"; emails keep only the domain."""
+    becomes "•••• 4821"; 3-8 digits right after CVV/OTP/PIN/password become "•••"; emails keep only the domain."""
     def num(m):
         d = re.sub(r"\D", "", m[0])
         return f"•••• {d[-4:]}" if len(d) >= 7 else m[0]
-    return EMAIL.sub(r"••••@\1", NUMBER.sub(num, text))
+    text = SECRET.sub(lambda m: m[1] + m[2] + "•" * len(re.sub(r"\D", "", m[3])), NUMBER.sub(num, text))
+    return EMAIL.sub(r"••••@\1", text)
+
+
+def mask_with(ctx: str, text: str) -> str:
+    """mask() with the previous line's tail as context, so "...pakibigay ang CVV" | "1, 2, 3" masks across chunks.
+    The separator (0x01) is not whitespace, so NUMBER can't join digits across it, but SECRET's word gaps can."""
+    return mask(f"{ctx} \x01 {text}").split("\x01", 1)[1].strip()
+
+
+def alert(ctx: str, text: str) -> str | None:
+    """Compliance rule: the agent asks for a CVV/OTP/PIN/password (keyword + an ask word nearby) -> the rule's name."""
+    k = re.search(SECRET_KEY, text, re.I)  # keyword in this chunk; the ask word may be at the end of the last one
+    return RULES[k[1].lower()] if k and ASK_WORD.search(f"{ctx} {text}") else None
 
 
 def hold_tail(text: str) -> tuple[str, str]:
@@ -165,7 +183,7 @@ MOOD_HIGH = 0.5  # smoothed P(angry) at or above this for 2 chunks -> escalate; 
 
 def new_call() -> dict:
     """Per-connection state. seq counts chunks received; a job whose chunk number < seq is stale."""
-    return {"held": "", "seq": 0, "lines": [], "moods": [], "high": 0, "intent": None, "esc": False, "votes": {}, "task": None}
+    return {"held": "", "seq": 0, "lines": [], "moods": [], "high": 0, "intent": None, "esc": False, "votes": {}, "task": None, "alerts": set()}
 
 
 def is_english(text: str) -> bool:
@@ -222,10 +240,16 @@ async def handle_chunk(ws: WebSocket, pcm: np.ndarray, st: dict, final: bool = F
         text = await asyncio.to_thread(models.transcribe, pcm)
     joined = f"{st['held']} {text}".strip()
     text, st["held"] = hold_tail(joined) if not final else (joined, "")
-    text = mask(text)
+    ctx = " ".join(st["lines"][-1].split()[-8:]) if st["lines"] else ""
+    text = mask_with(ctx, text)
     if not text:
         return await finish(ws, n, ms, "no speech, ")
     await ws.send_json({"type": "transcript", "id": n, "text": text})
+    rule = text and alert(ctx, text)
+    if rule and rule not in st["alerts"]:  # once per rule per call
+        st["alerts"].add(rule)
+        await ws.send_json({"type": "alert", "rule": rule,
+                            "text": f"Never ask for the {rule} — {'PCI' if rule == 'CVV' else 'security'} rule"})
     st["lines"].append(text)
     st["task"] = asyncio.create_task(enrich(ws, n, text, st, ms))
 

@@ -27,6 +27,8 @@ async def main():
                 if k == "signals" and m["escalate"]: beats.setdefault("escalate", t)
                 if k == "suggestions" and "Angry" in info: beats.setdefault("deesc_pinned", t)
                 if k == "reply": beats.setdefault("reply", t)
+                if k == "alert": beats.setdefault("alert", t)
+                if k == "transcript" and re.search(r"CVV.*•••", m["text"]): beats.setdefault("cvv_mask", t)
                 if k == "end": beats["end"] = t; break
         except websockets.ConnectionClosedError: pass
     alltext = " ".join(lines)
