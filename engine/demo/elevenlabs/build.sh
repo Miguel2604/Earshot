@@ -1,8 +1,8 @@
 #!/bin/sh
-# Phase 11: clips/NN.mp3 (from gen.html) -> ../call.wav (or: build.sh clips-en ../call-en.wav), the demo call (16 kHz mono s16), gaps between lines.
+# Phase 11: clips/NN.mp3 (from gen.html) -> ../call.wav, the demo call (16 kHz mono s16), gaps between lines.
 set -e
 cd "$(dirname "$0")"
-clips=${1:-clips}; out=${2:-../call.wav}; tmp=$(mktemp -d); at=0; : > "${out%.wav}.lines"
+clips=${1:-clips}; tmp=$(mktemp -d)
 for f in "$clips"/*.mp3; do
   n=$(basename "$f" .mp3)
   # longer beat before the outburst (line 04); short one before the card (07): with 0.5-1.4 s the card digits land in
@@ -10,10 +10,7 @@ for f in "$clips"/*.mp3; do
   case $n in 03) gap=0.9;; 06) gap=0.2;; *) gap=0.5;; esac
   ffmpeg -loglevel error -y -i "$f" -ar 16000 -ac 1 -af "apad=pad_dur=$gap" -c:a pcm_s16le "$tmp/$n.wav"
   echo "file '$tmp/$n.wav'" >> "$tmp/list.txt"
-  len=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$tmp/$n.wav")
-  echo "$at $(echo "$at + $len - $gap" | bc)" >> "${out%.wav}.lines"  # start end (s) of each line, for the video's audio bursts
-  at=$(echo "$at + $len" | bc)
 done
-ffmpeg -loglevel error -y -f concat -safe 0 -i "$tmp/list.txt" -c:a pcm_s16le "$out"
+ffmpeg -loglevel error -y -f concat -safe 0 -i "$tmp/list.txt" -c:a pcm_s16le ../call.wav
 rm -rf "$tmp"
-ffprobe -v error -show_entries format=duration:stream=sample_rate,channels,codec_name -of compact "$out"
+ffprobe -v error -show_entries format=duration:stream=sample_rate,channels,codec_name -of compact ../call.wav

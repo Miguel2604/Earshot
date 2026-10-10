@@ -104,10 +104,8 @@
 
   // Demo-call mode: the engine streams engine/demo/call.wav through the pipeline at real-time pace; we play the audio.
   function playDemo() {
-    // ?demo=en: the English call, only for recording the demo video
-    const file = new URLSearchParams(location.search).get("demo") === "en" ? "call-en.wav" : "call.wav";
-    openCall(`/ws/demo?file=${file}`);
-    const audio = new Audio(`http://${ENGINE}/demo/${file}`);
+    openCall("/ws/demo");
+    const audio = new Audio(`http://${ENGINE}/demo/call.wav`);
     audio.play().catch(() => {}); // transcript still streams if playback is blocked
     stopAudio = () => audio.pause();
   }

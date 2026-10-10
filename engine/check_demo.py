@@ -1,7 +1,6 @@
 """Scripted demo check: stream engine/demo/call.wav via /ws/demo, print every message with its time,
 assert no raw card digits, then POST /notes and /qa. Polls /egress every 2 s throughout (Earshot must stay at 0). Engine must be running: uv run --offline python check_demo.py"""
-import asyncio, json, sys, time, re, urllib.request, websockets
-FILE = sys.argv[1] if len(sys.argv) > 1 else "call.wav"  # check_demo.py call-en.wav: the English video call
+import asyncio, json, time, re, urllib.request, websockets
 eg = []
 async def poll_egress():
     while True:
@@ -9,7 +8,7 @@ async def poll_egress():
         await asyncio.sleep(2)
 async def main():
     t0 = time.time(); lines = []; beats = {}; steps = []; poller = asyncio.create_task(poll_egress())
-    async with websockets.connect(f"ws://127.0.0.1:8765/ws/demo?file={FILE}", max_size=None) as ws:
+    async with websockets.connect("ws://127.0.0.1:8765/ws/demo", max_size=None) as ws:
         try:
             async for raw in ws:
                 m = json.loads(raw); t = time.time() - t0; k = m["type"]
@@ -37,8 +36,7 @@ async def main():
     t1 = time.time()
     req = urllib.request.Request("http://127.0.0.1:8765/notes", json.dumps({"transcript": "\n".join(lines)}).encode(), {"Content-Type": "application/json"})
     notes = json.load(urllib.request.urlopen(req)); beats["notes_s"] = round(time.time() - t1, 2)
-    route = notes.pop("route"); route.pop("options")
-    print(json.dumps({k: (v["value"], round(v["confidence"], 2)) if isinstance(v, dict) else v for k, v in notes.items()} | {"route": route}, ensure_ascii=False, indent=1))
+    print(json.dumps({k: (v["value"], round(v["confidence"], 2)) if isinstance(v, dict) and "value" in v else v for k, v in notes.items()}, ensure_ascii=False, indent=1))
     t1 = time.time(); req = urllib.request.Request("http://127.0.0.1:8765/qa", req.data, req.headers)
     qa = json.load(urllib.request.urlopen(req))["steps"]; beats["qa_s"] = round(time.time() - t1, 2)
     print("QA", [(q["label"], q["done"]) for q in qa])

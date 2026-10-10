@@ -319,13 +319,11 @@ async def call(ws: WebSocket):
 
 
 @app.websocket("/ws/demo")
-async def demo(ws: WebSocket, file: str = "call.wav"):
+async def demo(ws: WebSocket):
     """Demo-call mode: stream engine/demo/call.wav through the same pipeline at real-time pace,
-    then send {"type":"end"}. The UI plays /demo/call.wav alongside. ?file=call-en.wav: the English call (video only)."""
+    then send {"type":"end"}. The UI plays /demo/call.wav alongside."""
     await ws.accept()
-    if file not in ("call.wav", "call-en.wav"):  # whitelist, no paths
-        return await ws.close(1008)
-    with wave.open(str(DEMO_WAV.parent / file)) as w:  # 16 kHz mono 16-bit (see demo/make_demo.sh)
+    with wave.open(str(DEMO_WAV)) as w:  # 16 kHz mono 16-bit (see demo/make_demo.sh)
         audio = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16).astype(np.float32) / 32768
     t0, carry, st = time.monotonic(), audio[:0], new_call()
     try:

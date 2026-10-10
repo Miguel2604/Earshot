@@ -4,7 +4,7 @@
 <script>
 const A = "21m00Tcm4TlvDq8ikWAM"; // Rachel (agent)
 const C = "pNInz6obpgDQGcFmaJgB"; // Adam (customer)
-const TL = [
+const LINES = [
  [A, "Good afternoon, thank you for calling Fiberlink, this is Ana. How may I help you po?"],
  [C, "Hi, yes. Na-charge ako ng dalawang beses ngayong buwan sa bill ko. Same amount, twice."],
  [A, "I'm sorry to hear that po. Pwede ko po bang makuha ang account number ninyo?"],
@@ -17,20 +17,6 @@ const TL = [
  [C, "Sige, okay. Basta i-text niyo ako pag na-process na."],
  [A, "Opo, you will get an SMS confirmation. Salamat po sa pasensya, and thank you for calling Fiberlink."],
 ];
-const EN = [ // ?lang=en: the same call in full English (video only; build.sh clips-en ../call-en.wav)
- [A, "Good afternoon, thank you for calling Fiberlink, this is Ana. How may I help you today?"],
- [C, "Hi. I was charged twice on my bill this month. Same amount, two times."],
- [A, "I'm sorry to hear that. May I have your account number, please?"],
- [C, "I already called about this last week. Why is it still not fixed?"],
- [A, "To verify your account, please give me the CVV on your card."],
- [C, "Uh, one two three... wait, why do you need that?"],
- [C, "Here's my card, 4 1 1 1, 2 2 2 2, 3 3 3 3, 4 8 2 1. Just give me my money back!"],
- [C, "I don't want another sorry! I want to talk to your supervisor, right now!"],
- [A, "I understand, and I apologize for the trouble. I can see the double charge. I will file a refund today, and it will be credited in five to seven banking days."],
- [C, "Fine, okay. Just text me when it's processed."],
- [A, "Of course. You will get an SMS confirmation. Thank you for your patience, and thank you for calling Fiberlink."],
-];
-const LINES = new URLSearchParams(location.search).get("lang") === "en" ? EN : TL;
 const log = m => (document.getElementById("log").textContent += m + "\n");
 async function run() {
   for (let i = 0; i < LINES.length; i++) {

@@ -5,7 +5,7 @@ You are picking up a hackathon project at the finish line. Read this, then `PLAN
 ## Situation
 - **Event:** AppBuildersPH Hackathon 2026, theme **Local AI** (https://appbuildersph.com/hackathon/). **Code freeze 10:00 AM Sat Oct 10, 2026, no extensions.** Judges review the public GitHub repo as of the deadline. Demo Day is in person, on the user's MacBook.
 - **Product:** Earshot, an on-device copilot for Filipino call center agents: live transcript → mood + intent → KB procedure → drafted reply → masked after-call notes.
-- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay), Phase 1 (demo-call mode, silence chunking), Phase 2 (live PII masking), Phase 3 (subtitles, Laya signals, escalation, gated reply), Phase 4 (structured, editable notes + Copy to CRM), Phase 5 (Online/Offline indicator, offline flags, locality check) Phase 6 code side, the fix-up, the QA checklist, the Cluely-style UI, Phase 7, Phase 8 (slim), Phase 10, Phase 11, the demo rehearsal and the demo video committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
+- **Repo state:** `main` has the scaffold, the Earshot rename, Phase 0.5 (floating overlay), Phase 1 (demo-call mode, silence chunking), Phase 2 (live PII masking), Phase 3 (subtitles, Laya signals, escalation, gated reply), Phase 4 (structured, editable notes + Copy to CRM), Phase 5 (Online/Offline indicator, offline flags, locality check) Phase 6 code side, the fix-up, the QA checklist, the Cluely-style UI, Phase 7, Phase 8 (slim), Phase 10, Phase 11 and the demo rehearsal committed. An earlier, unrelated project lives on branch `bantai`. **Leave it alone; the user said to forget it.** There's no git remote yet.
 
 ## Decisions already made (by the user)
 - Demo on **Mac only** (Apple M5, 24 GB). No Windows build.
@@ -40,7 +40,6 @@ You are picking up a hackathon project at the finish line. Read this, then `PLAN
 - Cmd+\ toggles show/hide (global shortcut registered in Rust). Registers without error; **not yet tested by an actual keypress** (synthetic keys were blocked here).
 - **Not verified:** mic capture inside the Tauri webview (the permission prompt can't be accepted unattended). If `getUserMedia` fails, the transcript card says "Microphone unavailable… Use Demo call." Fallback if it fails for real: capture in the engine with `sounddevice`, same WS messages (PLAN Phase 1.1).
 
-- **Demo video:** `docs/demo-video.mp4` (89.8 s, 1080p, 7 MB, call audio included). Made per brag's `/brag-slim` skill with headless Chrome (puppeteer-core from the npx cache + `/Applications/Google Chrome.app`) + ffmpeg: `docs/video/capture.cjs` records a real Demo call at localhost:1420 over the video's backdrop (so the glass frosts the same image) and logs beat times + element boxes; `docs/video/compose.html` + `render.cjs` draw title cards, captions, rings and zoom callouts frame by frame. To re-render (engine + Vite up): re-render: `NODE_PATH=<dir with puppeteer-core> node docs/video/capture.cjs <workdir>` (after `node docs/video/render.cjs <workdir> --backdrop`), then `node docs/video/render.cjs <workdir>` (`--stills 10,20` writes check frames). The footer reads "Online" (real `navigator.onLine`); the egress meter is the proof.
 
 ## Laya: what we learned (important)
 Tested zero-shot on 6 Taglish lines (details in PLAN.md):
@@ -137,7 +136,7 @@ Build stopped Sat Oct 10, ~02:00. Code freeze **10:00 AM today**, no extensions.
 - 0.5 floating overlay · 1 demo-call mode + silence chunking · 2 live PII masking · 3 subtitles, Laya intent/mood, escalation, gated reply · 4 editable notes + Copy to CRM · 5 Online/Offline + offline flags + lsof locality check · 6 demo WAV, README, `SUBMISSION.md` drafts · 7 live model strip + real egress meter · 8 (slim) CVV/OTP/PIN alert + masking.
 - 10 reply in the customer's language · 11 ElevenLabs demo voices swapped into `engine/demo/call.wav`.
 - Fix-up (sticky call intent, small talk doesn't vote) · Stretch QA checklist (`/qa`, grounded quotes) · UI Cluely glass passes (dark glass + icons, translucent overlay, lighter native glass).
-- Demo rehearsal (notes fit after the call, clean reset between runs, stricter supervisor-callback QA) · demo video `docs/demo-video.mp4` (89.8 s, 1080p, call audio).
+- Demo rehearsal (notes fit after the call, clean reset between runs, stricter supervisor-callback QA)
 
 **Not done:** Phase 9 (mood timeline), skipped on Miguel's "don't polish" call · Phase 8 live QA (skipped; only the CVV alert + masking shipped) · remaining Stretch: screenshot KB, speaker labels.
 
@@ -160,7 +159,7 @@ cd ~/Documents/GitHub/"AppBuilders Hackathon"/app && pnpm tauri dev
 
 **Miguel: to-do before 10:00 AM**
 1. Watch one native run end to end (blink? readable? press Cmd+\ twice; Copy to CRM then `pbpaste`). Do the Wi-Fi-off run once.
-2. Upload `docs/demo-video.mp4` (YouTube/LinkedIn/X; you need a link for the form).
+2. Record and upload the demo video (YouTube/LinkedIn/X; you need a link for the form).
 3. Social post from the drafts in `SUBMISSION.md`.
 4. Create the public repo and push main only: `gh repo create earshot --public --source . --remote origin --push` (leave branch `bantai` alone).
 5. Fill the `TODO`s in `SUBMISSION.md` (team, repo URL, video link) and submit on Cerebral Valley.
