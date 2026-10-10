@@ -31,7 +31,7 @@ Tauri window (SvelteKit)                 engine/ (Python, 127.0.0.1:8765)
 - Tauri (`app/src-tauri/src/lib.rs`) spawns the engine with `uv run uvicorn` and kills it on exit.
 - Models live in `~/models`. `engine/fetch_models.sh` downloads from ModelScope. **Do not download from Hugging Face** (it's ~26 KB/s from this network). The engine sets `HF_HUB_OFFLINE=1`.
 - One global `asyncio.Lock` serializes model jobs (`engine/server.py`). Laya is fast enough to share it.
-- **Decided:** Laya runs on the official PyTorch package on the Mac GPU, *not* the community MLX port (its weights are only on Hugging Face). Ticket routing is **out of scope**.
+- **Decided:** Laya runs on the official PyTorch package on the Mac GPU, *not* the community MLX port (its weights are only on Hugging Face). Ticket routing was dropped, then added back by Miguel (see Status).
 
 ## Measured on the demo Mac
 | Step | Time |
@@ -57,6 +57,8 @@ Tauri window (SvelteKit)                 engine/ (Python, 127.0.0.1:8765)
 Laya's own docs show zero-shot accuracy is modest (0.362 base vs 0.766 fine-tuned on their benchmark). Fine-tuning tonight is out of scope. **Fallback if mood stays flat on real voices:** EmbeddingGemma 2 against ~5 labeled Taglish examples per mood level (~20 ms, no new model).
 
 ## Status
+### Ticket routing ✅ added back by Miguel (Sat morning)
+`/notes` returns `route: {queue, p, reason, options}`: Laya picks one of 5 queues (Billing Disputes, Technical Support, Retention, Field Service, Supervisor Escalations) on the English summary, in the same `decide` call as category/priority/disposition (no extra Gemma call). Plain rule (`route()` in `server.py`): a supervisor/manager demand in the transcript or disposition "escalated" → Supervisor Escalations, p 1.00. Notes card: "Route to" dropdown + confidence + reason; `Route: <queue>` in Copy to CRM. Demo: Supervisor Escalations 1.00, "escalated: customer asked for a supervisor". Screenshot `docs/ticket-routing.png`.
 ### Demo video ✅ done (Sat 02:00): `docs/demo-video.mp4`
 89.8 s, 1920x1080 H.264 + AAC (the demo call's own audio), 7 MB. Made following brag's `/brag-slim` skill (github.com/latent-spaces/brag; a skill file only, nothing installed, no account): a real "Demo call" run of the UI at localhost:1420 recorded in headless Chrome (CDP screencast, 420x720 @2x), composed frame by frame from `docs/video/compose.html` (title cards, beat captions keyed to the measured beat times, rings + zoom callouts on the real frames), encoded with ffmpeg. Scripts in `docs/video/`; re-render: `NODE_PATH=<dir with puppeteer-core> node docs/video/capture.cjs <workdir>` (after `node docs/video/render.cjs <workdir> --backdrop`), then `node docs/video/render.cjs <workdir>`. Miguel still uploads it (LinkedIn/X/form).
 
@@ -227,4 +229,4 @@ Do these **after** the Stretch QA checklist is committed, in this order, one com
 - Python is pinned to 3.12 (MLX wheels). Don't add `sentence-transformers[audio]` (conflicts with mlx-vlm). `torchvision` is required by EmbeddingGemma 2's processor.
 
 ## Out of scope
-Ticket routing, Windows build, installer/sidecar bundling, real telephony (WASAPI loopback), CRM API integrations, fine-tuning.
+Windows build, installer/sidecar bundling, real telephony (WASAPI loopback), CRM API integrations, fine-tuning.

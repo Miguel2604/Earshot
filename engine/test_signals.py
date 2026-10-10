@@ -22,4 +22,7 @@ assert server.grounded("you will get an SMS confirmation", t) and server.grounde
 assert not server.grounded(None, t) and not server.grounded("null", t) and not server.grounded("I will call you back within 24 hours", t)
 assert server.customer_english(["Hi, I was charged twice. Can you fix it?"])  # reply language follows the customer
 assert not server.customer_english(["Ilang beses na akong tumawag.", "I'm sorry to hear that. I will check."])
+assert server.route("Gusto ko makausap ang supervisor!", "follow-up", "Billing Disputes", 0.9, "billing")["queue"] == "Supervisor Escalations"
+assert server.route("Na double charge ako", "escalated", "Billing Disputes", 0.9, "billing")["queue"] == "Supervisor Escalations"
+assert server.route("Na double charge ako", "follow-up", "Billing Disputes", 0.9, "billing") == {"queue": "Billing Disputes", "p": 0.9, "reason": "category billing"}
 print("ok")

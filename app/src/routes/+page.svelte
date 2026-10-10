@@ -8,7 +8,8 @@
   type Line = { id: number; text: string; en?: string };
   type Signals = { intent: string | null; intent_p: number; mood: number; escalate: boolean };
   type Pick = { value: string; confidence: number; options: string[] };
-  type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string };
+  type Route = { queue: string; p: number; reason: string; options: string[] };
+  type Notes = { category: Pick; priority: Pick; disposition: Pick; summary: string; follow_up: string; route: Route };
   type Step = { label: string; done: boolean; quote: string };
   type Alert = { rule: string; text: string; hidden?: boolean };
   const PICKS = ["category", "priority", "disposition"] as const;
@@ -177,7 +178,7 @@
   async function copyNotes() {
     if (!notes) return;
     const n = notes;
-    const text = [...PICKS.map((k) => `${cap(k)}: ${cap(n[k].value)}`), `Summary: ${n.summary}`, `Follow-up: ${n.follow_up}`,
+    const text = [...PICKS.map((k) => `${cap(k)}: ${cap(n[k].value)}`), `Summary: ${n.summary}`, `Follow-up: ${n.follow_up}`, `Route: ${n.route.queue}`,
       ...(qa ? [`QA: ${qa.filter((q) => q.done).length}/${qa.length}`, ...qa.map((q) => `[${q.done ? "x" : " "}] ${q.label}`)] : [])].join("\n");
     // execCommand runs synchronously inside the click, so it needs no clipboard permission (the browser pane denies
     // navigator.clipboard); navigator.clipboard is the fallback.
@@ -268,6 +269,12 @@
             </label>
           {/each}
         </div>
+        <!-- Ticket queue: Laya's pick, or Supervisor Escalations by plain rule when the call escalated. -->
+        <label>Route to <small>{notes.route.p.toFixed(2)} · {notes.route.reason}</small>
+          <select class="route" bind:value={notes.route.queue} onchange={() => (copied = false)}>
+            {#each notes.route.options as o}<option value={o}>{o}</option>{/each}
+          </select>
+        </label>
         <!-- QA checklist: Gemma ticks a step only with a quote from the call (hover it); click to correct. -->
         <div class="qa">
           <span class="qa-title">QA {qa ? `${qa.filter((q) => q.done).length}/${qa.length}` : "checking…"}</span>
@@ -275,7 +282,7 @@
             <button class="step" class:done={q.done} title={q.quote || "Not found in the call"} onclick={() => { q.done = !q.done; copied = false; }}>{q.done ? "✓" : "–"} {q.label}</button>
           {/each}
         </div>
-        <label>Summary <textarea rows="3" bind:value={notes.summary} oninput={() => (copied = false)}></textarea></label>
+        <label>Summary <textarea rows="2" bind:value={notes.summary} oninput={() => (copied = false)}></textarea></label>
         <label>Follow-up <textarea rows="2" bind:value={notes.follow_up} oninput={() => (copied = false)}></textarea></label>
         <button class="primary copy" onclick={copyNotes}>{copied ? "Copied to clipboard" : "Copy to CRM"}</button>
       {/if}
@@ -371,7 +378,7 @@
   .notes { flex: 2 1 0; min-height: 0; }
   /* call over: the notes are what the agent works on now (the alert lives on as a failed QA chip) */
   .done .suggest, .done .signals, .done .escalate { display: none; }
-  .done .transcript { flex: 0 0 auto; min-height: 0; max-height: 72px; }
+  .done .transcript { flex: 0 0 auto; min-height: 0; max-height: 48px; }
   h2 { font-weight: 500; font-size: 13px; line-height: 1.5; letter-spacing: 0.2px; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
   .ai { font-weight: 500; font-size: 11px; line-height: 1.4; color: var(--ai); background: var(--ai-tint); border: 1px solid var(--ai-line); padding: 1px 8px; border-radius: 999px; }
   p { font-size: 14px; line-height: 1.5; margin: 0 0 8px; white-space: pre-line; }
@@ -403,6 +410,7 @@
   .net.off { background: var(--success-border); }
   .picks { display: flex; gap: 8px; }
   .picks label { flex: 1; min-width: 0; }
+  .route { width: auto; }
   label { display: block; font-weight: 500; font-size: 12px; line-height: 1.35; color: var(--muted); margin-bottom: 10px; }
   select, textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 4px; font: inherit; font-size: 14px; line-height: 1.4; color: var(--ink);
     background: var(--field); border: 1px solid var(--hairline); border-radius: 8px; padding: 6px 8px; }
